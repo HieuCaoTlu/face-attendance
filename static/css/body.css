@@ -1,0 +1,95 @@
+@import url("/static/css/fonts.css");
+@import url("/static/css/button.css");
+
+header > img {
+  width: 50px;
+  height: 50px;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  background: url("/static/images/bgr.png") no-repeat center center;
+  background-size: cover;
+}
+
+main {
+  margin-block: 50px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 50px;
+  flex-wrap: wrap;
+}
+
+main > section {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: start;
+}
+
+.left-section {
+  text-align: right;
+  align-items: end;
+  transform: perspective(600px) rotateY(15deg);
+}
+
+.left-section > p {
+  font-size: 2.5rem;
+  margin-top: 10px;
+  font-weight: lighter;
+}
+
+.right-section {
+  gap: 20px;
+  transform: perspective(600px) rotateY(-15deg);
+}
+
+canvas {
+  width: 800px;
+  height: 600px;
+  background-color: rgba(1, 76, 206, 0.6);
+  border-radius: 50px;
+  box-shadow: 0 0 200px 60px rgba(1, 76, 206, 0.6);
+}
+
+@media (max-width: 640px) {
+  header,
+  footer {
+    display: none;
+  }
+
+  main {
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+  }
+
+  section {
+    text-align: center;
+  }
+
+  h1 {
+    font-size: 3rem;
+  }
+
+  canvas {
+    max-width: 100%;
+  }
+  .left-section {
+    transform: none;
+  }
+
+  .right-section {
+    transform: none;
+  }
+}

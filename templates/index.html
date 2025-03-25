@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon" />
+    <link rel="stylesheet" href="/static/css/index.css" />
+    <link rel="stylesheet" href="/static/css/body.css" />
+    <title>Hệ thống chấm công TLU</title>
+  </head>
+  <body>
+    <video autoplay muted loop plays-inline>
+      <source src="/static/videos/bg.mp4" type="video/mp4" />
+    </video>
+
+    <header>
+      <img src="/static/images/icon.png" alt="Icon" />
+    </header>
+
+    <main>
+      <section class="left-section">
+        <h1>App chấm công</h1>
+        <p>Vui lòng đưa mặt vào gần camera</p>
+      </section>
+
+      <canvas width="800px" height="600px" id="camera"></canvas>
+
+      <section class="right-section">
+        <div class="button">
+          Quản trị
+          <p>Quản lí lịch sử chấm công</p>
+        </div>
+        <div class="button">
+          Hướng dẫn
+          <p>Cách tính chấm công trong ngày</p>
+        </div>
+        <div class="button">
+          Khiếu nại
+          <p>Báo cáo sự cố chấm công</p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <h3>Luccihank x HieuCaoTlu</h3>
+    </footer>
+
+    <script src="/static/js/predict.js"></script>
+  </body>
+</html>
