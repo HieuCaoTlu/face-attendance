@@ -6,40 +6,56 @@ Hệ thống chấm công sử dụng nhận diện khuôn mặt để ghi nhậ
 
 ## 1. Yêu Cầu Lập Trình Viên 👨‍💻
 
-### **Quy Trình Phát Triển**
+### 1️⃣ Lấy code mới nhất từ branch `dev`
+```sh
+git checkout dev
+git pull origin dev
+```
 
-1. **Tách nhánh riêng** để lập trình các tính năng:
+### 2️⃣ Tạo nhánh mới từ `dev`
+```sh
+git checkout -b <tên-thành-viên>/<tên-tính-năng>
+```
 
-   - `master`: Nhánh chính, khi sản phẩm hoàn thiện.
-   - `dev`: Nhánh phát triển, tách ra từ `master`
-   - Các bạn sẽ checkout và tách nhánh từ `dev`
-     ```bash
-     git checkout -b <tên nhánh mới> dev
-     ```
+### 3️⃣ Thực hiện thay đổi, commit với Conventional Commit
+```sh
+git add .
+git commit -s -m "feat: mô tả ngắn gọn tính năng"
+```
+_(Thay `feat:` bằng `fix:`, `chore:`,... tùy vào loại commit)_
 
-- Đặt tên nhánh: <tên thành viên>/<tính năng>
-  VD: hieu/improve-camera
-      hoang-anh/build-interface
+### 4️⃣ Push nhánh lên GitHub
+```sh
+git push origin <tên-thành-viên>/<tên-tính-năng>
+```
 
-2. **Sử dụng rebase** khi có tính năng mới, để đảm bảo commit đang sử dụng phiên bản mới nhất:
+### 5️⃣ Tạo Pull Request (PR) từ `<nhánh của bạn>` vào `dev`
+- Vào GitHub, chọn **New Pull Request**
+- Chọn **base: dev** ← **compare: <nhánh của bạn>**
+- Thêm mô tả, nhấn **Create Pull Request**
 
-   ```bash
-   # Cập nhật repo hiện tại, đồng thời lấy về commits mới nhất của dev
-   git pull
+### 6️⃣ Chờ review & merge PR
+- Nếu cần chỉnh sửa, commit lại và push
+- Khi PR được merge thành công, tiếp tục bước 7
 
-   # Chuyển qua nhánh `login`, nếu bạn chưa ở nhánh này
-   git checkout login
+### 7️⃣ Chuyển về branch `dev` & cập nhật code mới nhất
+```sh
+git checkout dev
+git pull origin dev
+```
 
-   # Thực hiện rebase
-   git rebase dev
+### 8️⃣ Xóa branch cũ (sau khi merge thành công)
+- Xóa branch cục bộ:  
+  ```sh
+  git branch -d <tên-thành-viên>/<tên-tính-năng>
+  ```
+- Xóa branch trên GitHub (chưa cần):  
+  ```sh
+  git push origin --delete <tên-thành-viên>/<tên-tính-năng>
+  ```
 
-   # Chắc chắn bạn đang ở nhánh `login`
-   git checkout login
+🎯 **Mẹo:** Nếu bạn làm việc với nhiều PR, có thể dùng `git fetch --prune` để dọn dẹp các branch đã bị xóa trên remote. 🚀
 
-   # Rebase lên dev interactively
-   git rebase dev -i
-   # Sử dụng 'fixup' (f) để ghép commit mà không cần commit message
-   ```
 
 ### **Cách Cài Đặt và Khởi Động 🚀**
 
