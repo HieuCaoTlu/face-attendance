@@ -18,3 +18,10 @@
   font-weight: lighter;
   font-style: normal;
 }
+
+@font-face {
+  font-family: "Roboto";
+  src: url("/static/fonts/roboto-bold.woff2") format("woff2");
+  font-weight: bold;
+  font-style: normal;
+}

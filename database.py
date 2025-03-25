@@ -24,6 +24,7 @@ class Employee(BaseModel):
     
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
+    position = Column(String, nullable=False)
     attendances = relationship('Attendance', back_populates='employee', lazy=True)
 
 # 🔹 Bảng Attendance (Chấm công)

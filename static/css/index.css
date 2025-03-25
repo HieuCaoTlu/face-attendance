@@ -41,3 +41,7 @@ video {
   z-index: -2;
   filter: brightness(120%);
 }
+
+button {
+  cursor: pointer;
+}

@@ -9,25 +9,20 @@ router = APIRouter()
 @router.post("/employee")
 async def add_employee(
     name: str = Form(...),
-    images: List[UploadFile] = File(...)
+    position: str = Form(...),
 ):
-    if not images:
-        return {"error": "No file provided"}, 400
     
     # Thêm nhân viên vào DB
-    new_employee = Employee(name=name)
+    new_employee = Employee(name=name, position=position)
     session.add(new_employee)
     session.commit()
     session.refresh(new_employee)
 
     # Gọi hàm train AI
     employee_id = new_employee.id
-    train(images, employee_id)
 
     return {
         "employee_id": employee_id,
-        "name": new_employee.name,
-        "message": "Employee added successfully"
     }
 
 @router.post("/checkin")

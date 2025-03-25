@@ -3,7 +3,15 @@ import base64
 from ai import detect_face, predict, train
 import time
 import json
+from speech import text_to_speech
+
 video_capture = None
+directions = [
+    "Giữ nguyên khuôn mặt",
+    "Hãy cười một cái nào",
+    "Vui lòng nghiêng nhẹ sang trái",
+    "Vui lòng nghiêng nhẹ sang phải",
+]
 
 def init_camera():
     global video_capture
@@ -29,6 +37,7 @@ def generate_predict_camera():
 
     while True:
         ret, image = video_capture.read()
+        image = cv2.flip(image, 1)
         if not ret:
             continue
         curr_time = time.time()
@@ -85,12 +94,15 @@ def generate_train_camera(label):
     init_camera()
     start_time = time.time()
     prev_time = start_time
+    last_speak_time = start_time
+    speak_count = 0
     saved_faces = []
     frame_count = 0
     training = True
 
     while training: 
         ret, image = video_capture.read()
+        image = cv2.flip(image, 1)
         if not ret:
             continue
         curr_time = time.time()
@@ -114,7 +126,8 @@ def generate_train_camera(label):
                 _, buffer = cv2.imencode('.jpeg', image, [cv2.IMWRITE_JPEG_QUALITY, 80])
                 saved_faces.append(buffer)
 
-        cv2.putText(image, f"FPS: {fps:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        elapsed_time = curr_time - start_time
+        cv2.putText(image, f"FPS: {fps:.2f} Giây: {elapsed_time:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
         ret, buffer = cv2.imencode('.jpeg', image, [cv2.IMWRITE_JPEG_QUALITY, 80])
         if not ret: 
@@ -122,9 +135,18 @@ def generate_train_camera(label):
         frame_binary = base64.b64encode(buffer).decode('utf-8')
         data = {"image": frame_binary}
 
-        if time.time() - start_time >= 10:
+        voice = None
+        if ((time.time() - last_speak_time >= 2.5) or speak_count == 0) and speak_count < len(directions):
+            voice = text_to_speech(directions[speak_count])
+            speak_count += 1
+            last_speak_time = time.time()
+            data["voice"] = voice
+
+        if time.time() - start_time >= 12:
             training = False
             data["message"] = "Success"
+            voice = text_to_speech("Thành công")
+            data["voice"] = voice
 
         yield f"data: {json.dumps(data)}\n\n"
 
