@@ -2,3 +2,5 @@
 myenv/
 venv/
 __pycache__/
+*.db
+*.pkl

@@ -1,3 +1,6 @@
+import { playTextToSpeech } from "./speech.js";
+import { showModal, updateAttendanceInfo } from "./modal.js";
+
 const canvas = document.getElementById("camera");
 const ctx = canvas.getContext("2d");
 
@@ -5,7 +8,6 @@ canvas.width = 800;
 canvas.height = 600;
 
 const eventSource = new EventSource("/stream/predict");
-const img = document.createElement("img");
 
 window.addEventListener("beforeunload", () => {
   eventSource.close();
@@ -25,12 +27,12 @@ eventSource.onmessage = async function (event) {
     ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     bitmap.close();
 
-    // Xử lý attendance_message
-    if (data.message != "") {
-      console.log("Attendance:", data.message);
+    if (data.valid == true) {
+      setTimeout(() => playTextToSpeech("Chấm công thành công!"), 0);
+      updateAttendanceInfo(data.attendance);
+      setTimeout(() => showModal(), 50);
     }
   } catch (error) {
     console.error("Lỗi xử lý dữ liệu:", error);
   }
 };
-

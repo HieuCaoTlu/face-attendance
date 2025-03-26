@@ -57,9 +57,58 @@ main > section {
 canvas {
   width: 800px;
   height: 600px;
-  background-color: rgba(1, 76, 206, 0.6);
+  background-color: rgba(9, 6, 50, 0.637);
   border-radius: 50px;
   box-shadow: 0 0 200px 60px rgba(1, 76, 206, 0.6);
+}
+
+.canvas-section {
+  position: relative;
+  width: 800px;
+  text-align: center;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  justify-content: center;
+  visibility: hidden;
+  background-color: rgba(9, 6, 50, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+}
+
+.modal-content {
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.2);
+  margin-top: 10px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+.progress {
+  width: 100%;
+  height: 100%;
+  background: rgb(255, 255, 255);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 5s linear;
+  border-radius: 10px;
 }
 
 @media (max-width: 640px) {

@@ -6,6 +6,7 @@
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon" />
     <link rel="stylesheet" href="/static/css/index.css" />
     <link rel="stylesheet" href="/static/css/body.css" />
+    <link rel="stylesheet" href="/static/css/predict-form.css" />
     <title>Hệ thống chấm công TLU</title>
   </head>
   <body>
@@ -23,13 +24,17 @@
         <p>Vui lòng đưa mặt vào gần camera</p>
       </section>
 
-      <canvas width="800px" height="600px" id="camera"></canvas>
+      <div class="canvas-section">
+        <canvas width="800px" height="600px" id="camera"></canvas>
+      </div>
 
       <section class="right-section">
-        <div class="button">
-          Quản trị
-          <p>Quản lí lịch sử chấm công</p>
-        </div>
+        <a href="/train">
+          <div class="button">
+            Quản trị
+            <p>Quản lí lịch sử chấm công</p>
+          </div>
+        </a>
         <div class="button">
           Hướng dẫn
           <p>Cách tính chấm công trong ngày</p>
@@ -45,6 +50,48 @@
       <h3>Luccihank x HieuCaoTlu</h3>
     </footer>
 
-    <script src="/static/js/predict.js"></script>
+    <div id="fullscreenModal" class="modal-overlay">
+      <div class="wrapper">
+        <form action="">
+          <h2 id="message">Thành công</h2>
+          <div class="input-field">
+            <span>Mã nhân viên:</span>
+            <span id="employee_id">...</span>
+          </div>
+          <div class="input-field">
+            <span>Nhân viên:</span>
+            <span id="employee_name">...</span>
+          </div>
+          <div class="input-field">
+            <span>Ngày:</span>
+            <span id="attendance_date">...</span>
+          </div>
+          <div class="input-row">
+            <div class="input-field">
+              <span>Giờ vào:</span>
+              <span id="attendance_checkin">...</span>
+            </div>
+            <div class="input-field">
+              <span>Giờ ra:</span>
+              <span id="attendance_checkout">...</span>
+            </div>
+          </div>
+          <div class="input-field">
+            <span>Ghi chú:</span>
+            <span id="attendance_message">...</span>
+          </div>
+          <div class="input-field">
+            <span>Trạng thái:</span>
+            <span id="checkin_status" class="status">...</span>
+          </div>
+          <button id="submit-button" type="button">Nhấn để khiếu nại</button>
+          <div class="progress-bar">
+            <div class="progress"></div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="/static/js/predict.js" type="module"></script>
   </body>
 </html>
