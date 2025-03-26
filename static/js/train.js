@@ -1,9 +1,10 @@
+import { playTextToSpeech } from "./speech.js";
+
 let employee_id;
 const canvas = document.getElementById("camera");
 const ctx = canvas.getContext("2d");
 canvas.width = 800;
 canvas.height = 600;
-const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
 // Khi bấm vào "Xác nhận", đổi sang phần quét Camera
 document.querySelector("form").addEventListener("submit", async (e) => {
@@ -46,22 +47,6 @@ window.addEventListener("beforeunload", () => {
   clearCanvas();
 });
 
-function playAudio(base64) {
-  const audioData = atob(base64);
-  const arrayBuffer = new Uint8Array(audioData.length);
-
-  for (let i = 0; i < audioData.length; i++) {
-    arrayBuffer[i] = audioData.charCodeAt(i);
-  }
-
-  audioContext.decodeAudioData(arrayBuffer.buffer, (buffer) => {
-    const source = audioContext.createBufferSource();
-    source.buffer = buffer;
-    source.connect(audioContext.destination);
-    source.start(0);
-  });
-}
-
 function startStreaming(label, name, position) {
   const eventSource = new EventSource(
     `/stream/train?label=${encodeURIComponent(label)}`
@@ -80,8 +65,9 @@ function startStreaming(label, name, position) {
       ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
       bitmap.close();
 
-      if (data.voice) {
-        playAudio(data.voice);
+      if (data.speech) {
+        console.log(data.speech);
+        playTextToSpeech(data.speech);
       }
 
       // Xử lý attendance_message
