@@ -1,8 +1,14 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, LargeBinary, Time, Date
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, LargeBinary, Time, Date, event, text
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
+from dotenv import load_dotenv
 from utils.date import *
+import os
 
-engine = create_engine('sqlite:///database.db')  
+load_dotenv()
+
+
+value = os.getenv('DB_PASSWORD') 
+# engine = create_engine('sqlite:///database.db')  
 
 # 🔹 Tạo BaseModel
 Base = declarative_base()
@@ -41,6 +47,18 @@ class Embedding(Base):
     id = Column(Integer, primary_key=True)
     employee_id = Column(String, nullable=False) 
     embedding = Column(LargeBinary, nullable=False)
+
+
+psw = os.getenv('DB_PASSWORD')
+engine = create_engine(f"sqlite+pysqlcipher://:{psw}@/database.db")
+
+def forward_password(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute(f"PRAGMA key='{psw}'")
+    cursor.execute("PRAGMA cipher_compatibility = 3")
+    cursor.close()
+
+event.listen(engine, "connect", forward_password)
 
 # 🔹 Tạo database nếu chưa tồn tại
 Base.metadata.create_all(engine)
