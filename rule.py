@@ -1,12 +1,14 @@
 from datetime import datetime, timedelta
 from utils.date import get_date, set_time, time_to_string
 from database import session, Shift, Attendance
+from shared import db_lock
 
 MIN_BREAK_TIME = 10  # Thời gian nghỉ tối thiểu giữa 2 ca (phút)
 
 # Lấy danh sách ca làm việc được cấu hình
 def get_shifts():
-    return session.query(Shift).filter(Shift.active == True).order_by(Shift.check_in_time).all()
+    with db_lock:
+        return session.query(Shift).filter(Shift.active == True).order_by(Shift.check_in_time).all()
 
 # Kiểm tra xem thời gian hiện tại thuộc ca nào
 def get_current_shift(time):
@@ -99,12 +101,13 @@ def determine_attendance_type(employee_id, current_time):
     today = get_date()
     
     # Lấy danh sách chấm công của nhân viên trong ngày, sắp xếp theo thời gian
-    attendances = (
-        session.query(Attendance)
-        .filter(Attendance.employee_id == employee_id, Attendance.date == today)
-        .order_by(Attendance.checkin)
-        .all()
-    )
+    with db_lock:
+        attendances = (
+            session.query(Attendance)
+            .filter(Attendance.employee_id == employee_id, Attendance.date == today)
+            .order_by(Attendance.checkin)
+            .all()
+        )
     
     # Lấy danh sách ca làm việc
     shifts = get_shifts()

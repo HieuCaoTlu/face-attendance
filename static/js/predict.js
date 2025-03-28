@@ -36,3 +36,16 @@ eventSource.onmessage = async function (event) {
     console.error("Lỗi xử lý dữ liệu:", error);
   }
 };
+
+// Xử lý nút quản lý
+const adminBtn = document.getElementById("admin-btn");
+adminBtn.addEventListener("click", () => {
+  // Chuyển hướng đến trang admin
+  window.location.href = "/admin";
+});
+
+// Xử lý nút khiếu nại
+const complaintBtn = document.getElementById("complaint-btn");
+complaintBtn.addEventListener("click", () => {
+  alert("Chức năng khiếu nại sẽ được phát triển trong tương lai!");
+});

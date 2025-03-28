@@ -284,12 +284,13 @@ def generate_predict_camera():
             yield f"data: {json.dumps({'image': frame_binary, 'error': 'Không thể kết nối với camera'})}\n\n"
         return
     
-    attendance_successful = False
-    prev_label, label_start_time = None, None
     prev_time = time.time()
+    prev_label = None
+    label_start_time = None
+    attendance_successful = False
     attendance_cooldown = 0
-    frame_skip_counter = 0  # Đếm số frame để bỏ qua một số frame
-
+    frame_skip_counter = 0
+    
     try:
         while True:
             # Tăng hiệu suất bằng cách bỏ qua một số frame
@@ -306,7 +307,7 @@ def generate_predict_camera():
                 yield f"data: {json.dumps(error_data)}\n\n"
                 time.sleep(0.5)  # Đợi nửa giây trước khi thử lại
                 continue
-            
+        
             try:
                 image = cv2.flip(image, 1)
                 curr_time = time.time()
@@ -334,7 +335,7 @@ def generate_predict_camera():
 
                 if result is not None:
                     face, bbox = result
-                
+        
                 predicted_label = None
                 if bbox is not None and face is not None:
                     x1, y1 = bbox[0]
@@ -359,7 +360,7 @@ def generate_predict_camera():
                         prev_label, label_start_time = predicted_label, curr_time
                 else:
                     prev_label, label_start_time = None, None
-                
+        
                 # Giữ kích thước ảnh gốc để chất lượng tốt hơn
                 ret, buffer = cv2.imencode('.jpeg', image, [cv2.IMWRITE_JPEG_QUALITY, 75])
                 if not ret:
@@ -483,7 +484,7 @@ def generate_train_camera(label):
 
                 yield f"data: {json.dumps(data)}\n\n"
                 frame_count += 1
-                
+
             except Exception as e:
                 print(f"Lỗi xử lý frame trong training: {e}")
                 # Tạo frame thông báo lỗi

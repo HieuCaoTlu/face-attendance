@@ -1,14 +1,16 @@
 from utils.date import get_date, get_time, time_to_string, date_to_string
 from rule import determine_attendance_type, validate_checkin, validate_checkout
 from database import session, Employee, Attendance
+from shared import db_lock
 
 def checkin(employee_id):
     today = get_date()
     current_time = get_time()
     
     # Tìm nhân viên theo ID
-    employee = session.query(Employee).filter_by(id=employee_id).first()
-    if not employee: return
+    with db_lock:
+        employee = session.query(Employee).filter_by(id=employee_id).first()
+        if not employee: return
     
     # Xác định loại điểm danh (checkin/checkout), ca làm việc và trạng thái
     attendance_type, shift_id, is_valid, status = determine_attendance_type(employee_id, current_time)
@@ -16,34 +18,36 @@ def checkin(employee_id):
     attendance = None
     if attendance_type == "checkin":
         # Tạo bản ghi mới cho check-in
-        attendance = Attendance(
-            employee_id=employee_id,
-            shift_id=shift_id,
-            checkin=current_time,
-            checkin_status=is_valid
-        )
-        session.add(attendance)
-        session.commit()
-        session.refresh(attendance)
-    else:
-        # Cập nhật check-out cho bản ghi hiện có
-        attendance = (
-            session.query(Attendance)
-            .filter(
-                Attendance.employee_id == employee_id, 
-                Attendance.date == today,
-                Attendance.shift_id == shift_id,
-                Attendance.checkout == None
+        with db_lock:
+            attendance = Attendance(
+                employee_id=employee_id,
+                shift_id=shift_id,
+                checkin=current_time,
+                checkin_status=is_valid
             )
-            .order_by(Attendance.checkin.desc())
-            .first()
-        )
-        
-        if attendance:
-            attendance.checkout = current_time
-            attendance.checkout_status = is_valid
+            session.add(attendance)
             session.commit()
             session.refresh(attendance)
+    else:
+        # Cập nhật check-out cho bản ghi hiện có
+        with db_lock:
+            attendance = (
+                session.query(Attendance)
+                .filter(
+                    Attendance.employee_id == employee_id, 
+                    Attendance.date == today,
+                    Attendance.shift_id == shift_id,
+                    Attendance.checkout == None
+                )
+                .order_by(Attendance.checkin.desc())
+                .first()
+            )
+            
+            if attendance:
+                attendance.checkout = current_time
+                attendance.checkout_status = is_valid
+                session.commit()
+                session.refresh(attendance)
     
     if not attendance:
         return None
