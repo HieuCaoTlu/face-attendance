@@ -76,6 +76,7 @@ function startStreaming(label, name, position) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         eventSource.close();
         updateUIAfterTraining(name, position, employee_id);
+        playTextToSpeech("Thành công");
       }
     } catch (error) {
       console.error("Lỗi xử lý dữ liệu:", error);

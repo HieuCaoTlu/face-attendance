@@ -1,5 +1,7 @@
 from utils.date import get_date, get_time, time_to_string, date_to_string
 from rule import validate_checkin
+from utils.augmentation import *
+import random
 from database import session, Employee, Attendance
 
 def checkin(employee_id):
@@ -39,3 +41,14 @@ def checkin(employee_id):
         info['checkin_status'] = status
         info['checkin_flag'] = validate
     return info
+
+def augmentate(image):
+    augmentations = [
+        lambda img: adjust_brightness(img, random.choice([20, -20])),
+        lambda img: adjust_contrast(img, random.choice([1.5, 0.7])),
+        lambda img: rotate_image(img, random.choice([5, -5])),
+        lambda img: random.choice([add_gaussian_noise, blur_image])(img),
+    ]
+    
+    augmented_images = [augment(image) for augment in augmentations]
+    return augmented_images

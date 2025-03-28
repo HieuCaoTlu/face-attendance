@@ -5,6 +5,7 @@ import numpy as np
 import mediapipe as mp
 import onnxruntime as ort
 from sklearn.svm import SVC
+from tools import augmentate
 from database import session, Embedding
 
 model_dir = os.path.join(os.path.dirname(__file__), 'models')
@@ -38,6 +39,9 @@ def load_model():
     return rec_model, cls_model
 
 rec_model, cls_model = load_model()
+cls_ready = True
+if not hasattr(cls_model, "classes_"):
+    cls_ready = False
 
 def detect_face(image):
     """
@@ -69,8 +73,10 @@ def train(saved_face, employee_id):
     - Tham số: danh sách ảnh và mã nhân viên
     - Kết quả: trả về huấn luyện thành công
     """
-    global cls_model, cls_path, rec_model
+    global cls_model, cls_path, rec_model, cls_ready
+    cls_ready = True
     images = []
+
     for buffer in saved_face:
         image_array = np.frombuffer(buffer, np.uint8)
         image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
@@ -86,24 +92,31 @@ def train(saved_face, employee_id):
         labels.append(item.employee_id)
 
     # 🔹 Thêm embeddings mới vào
+    count = 0
     for image in images:
         face, bbox = detect_face(image)
         if face is None: continue
-        img = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
-        img = cv2.resize(img, (160, 160))
-        img = img.astype('float32') / 255.0
-        img = np.transpose(img, (2, 0, 1))
-        img = np.expand_dims(img, axis=0)
-        output = rec_model.run(None, {rec_model.get_inputs()[0].name: img})
-        embedding = output[0][0].tobytes()
 
-        # Lưu vào database
-        instance = Embedding(embedding=embedding, employee_id=employee_id)
-        session.add(instance)
-        session.commit()
+        face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
+        face = cv2.resize(face, (160, 160))
+        augmented_faces = augmentate(face)
+        all_images = [face] + augmented_faces
 
-        embeddings.append(np.frombuffer(embedding, dtype=np.float32).tolist())
-        labels.append(employee_id)
+        for img in all_images:
+            count += 1
+            img = img.astype('float32') / 255.0
+            img = np.transpose(img, (2, 0, 1))
+            img = np.expand_dims(img, axis=0)
+            output = rec_model.run(None, {rec_model.get_inputs()[0].name: img})
+            embedding = output[0][0].tobytes()
+
+            instance = Embedding(embedding=embedding, employee_id=employee_id)
+            session.add(instance)
+            session.commit()
+
+            embeddings.append(np.frombuffer(embedding, dtype=np.float32).tolist())
+            labels.append(employee_id)
+    print('Số lượng ảnh: ',count)
 
     if len(set(labels)) == 1:
         print("Chỉ có một nhãn duy nhất, thêm embedding giả...")
@@ -114,6 +127,7 @@ def train(saved_face, employee_id):
     cls_model = SVC(kernel='linear', probability=True)
     cls_model.fit(embeddings, labels)
     joblib.dump(cls_model, cls_path)
+    del images, embeddings, labels
     return {'status': 'Thành công', 'classes': cls_model.classes_.tolist()}
 
 def predict(face, threshold=0.8):
@@ -122,7 +136,8 @@ def predict(face, threshold=0.8):
     - Đầu vào: ảnh khuôn mặt đã cắt
     - Trả về: employee_id đáp ứng ngưỡng
     """
-    global cls_model, rec_model
+    global cls_model, rec_model, cls_ready
+    if not cls_ready: return ''
 
     # Tiền xử lí ảnh cho mô hình Facenet
     img = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
@@ -136,4 +151,5 @@ def predict(face, threshold=0.8):
     predicted_probs = cls_model.predict_proba(outputs[0])
     confidence, predicted_index = np.max(predicted_probs), np.argmax(predicted_probs, axis=1)[0]
     predicted_label = cls_model.classes_[predicted_index]
+    del outputs, predicted_probs, img
     return predicted_label if confidence >= threshold and predicted_label.lower() != "unknown" else ""
