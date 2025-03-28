@@ -30,10 +30,50 @@ def load_model():
     #Kiểm tra File SVC
     if not os.path.exists(cls_path):
         print("File SVC chưa tồn tại, đang tái tạo...")
-        cls_model = SVC(kernel='linear', probability=True)
+        # Lấy tất cả embeddings từ cơ sở dữ liệu
+        data = session.query(Embedding).all()
+        embeddings, labels = [], []
+        
+        for item in data:
+            embeddings.append(np.frombuffer(item.embedding, dtype=np.float32).tolist())
+            labels.append(item.employee_id)
+        
+        # Kiểm tra nếu có dữ liệu, tạo model và huấn luyện
+        if len(embeddings) > 0:
+            # Thêm một nhãn giả nếu chỉ có một nhãn
+            if len(set(labels)) == 1:
+                dummy_embedding = np.random.rand(len(embeddings[0])).tolist()
+                embeddings.append(dummy_embedding)
+                labels.append("unknown")
+                
+            cls_model = SVC(kernel='linear', probability=True)
+            cls_model.fit(embeddings, labels)
+        else:
+            # Tạo model mặc định nếu không có dữ liệu
+            cls_model = SVC(kernel='linear', probability=True)
+            # Tạo dữ liệu giả để đảm bảo model đã được huấn luyện
+            dummy_embedding1 = np.random.rand(512).tolist()  # Giả sử embedding có kích thước 512
+            dummy_embedding2 = np.random.rand(512).tolist()
+            cls_model.fit([dummy_embedding1, dummy_embedding2], ["unknown1", "unknown2"])
+        
         joblib.dump(cls_model, cls_path)
+    
+    # Tải model từ file
     cls_model = joblib.load(cls_path)
-    print("Model SVC sẵn sàng")
+    
+    # Kiểm tra xem model đã được huấn luyện chưa
+    try:
+        cls_model.predict(np.random.rand(1, 512).astype(np.float32))  # Kiểm tra với dữ liệu ngẫu nhiên
+        print("Model SVC sẵn sàng")
+    except Exception as e:
+        print(f"Lỗi khi kiểm tra model SVC: {e}")
+        # Huấn luyện lại model với dữ liệu giả
+        dummy_embedding1 = np.random.rand(512).tolist()
+        dummy_embedding2 = np.random.rand(512).tolist()
+        cls_model = SVC(kernel='linear', probability=True)
+        cls_model.fit([dummy_embedding1, dummy_embedding2], ["unknown1", "unknown2"])
+        joblib.dump(cls_model, cls_path)
+        print("Đã tái tạo model SVC")
 
     return rec_model, cls_model
 
@@ -124,16 +164,21 @@ def predict(face, threshold=0.8):
     """
     global cls_model, rec_model
 
-    # Tiền xử lí ảnh cho mô hình Facenet
-    img = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
-    img = cv2.resize(img, (160, 160))
-    img = img.astype('float32') / 255.0
-    img = np.transpose(img, (2, 0, 1))
-    img = np.expand_dims(img, axis=0)
-    outputs = rec_model.run(None, {rec_model.get_inputs()[0].name: img})
+    # Kiểm tra nếu model chưa được huấn luyện
+    try:
+        # Tiền xử lí ảnh cho mô hình Facenet
+        img = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
+        img = cv2.resize(img, (160, 160))
+        img = img.astype('float32') / 255.0
+        img = np.transpose(img, (2, 0, 1))
+        img = np.expand_dims(img, axis=0)
+        outputs = rec_model.run(None, {rec_model.get_inputs()[0].name: img})
 
-    # Dự đoán bằng SVC, tính xác suất, kiểm tra ngưỡng rồi dự đoán
-    predicted_probs = cls_model.predict_proba(outputs[0])
-    confidence, predicted_index = np.max(predicted_probs), np.argmax(predicted_probs, axis=1)[0]
-    predicted_label = cls_model.classes_[predicted_index]
-    return predicted_label if confidence >= threshold and predicted_label.lower() != "unknown" else ""
+        # Dự đoán bằng SVC, tính xác suất, kiểm tra ngưỡng rồi dự đoán
+        predicted_probs = cls_model.predict_proba(outputs[0])
+        confidence, predicted_index = np.max(predicted_probs), np.argmax(predicted_probs, axis=1)[0]
+        predicted_label = cls_model.classes_[predicted_index]
+        return predicted_label if confidence >= threshold and predicted_label.lower() != "unknown" else ""
+    except Exception as e:
+        print(f"Lỗi khi dự đoán: {e}")
+        return ""

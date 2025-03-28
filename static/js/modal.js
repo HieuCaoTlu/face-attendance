@@ -50,7 +50,8 @@ export function updateAttendanceInfo(attendance) {
     const attendanceCheckoutEl = document.getElementById("attendance_checkout");
     const attendanceMessageEl = document.getElementById("attendance_message");
     const messageElement = document.getElementById("message");
-    const checkinStatusElement = document.getElementById("checkin_status");
+    const statusElement = document.getElementById("status");
+    const shiftElement = document.getElementById("shift_info");
 
     if (employeeIdEl)
       employeeIdEl.textContent = attendance.employee_id || "N/A";
@@ -66,27 +67,40 @@ export function updateAttendanceInfo(attendance) {
     if (attendanceMessageEl)
       attendanceMessageEl.textContent = attendance.attendance_message || "N/A";
 
+    // Hiển thị thông tin ca làm việc
+    if (shiftElement) {
+      shiftElement.textContent = `Ca ${attendance.shift_id || "N/A"}`;
+    }
+
     // Đổi tiêu đề thành Checkin/Checkout thành công
     if (messageElement) {
       messageElement.textContent =
         attendance.attendance_message === "checkin"
-          ? "Checkin thành công"
+          ? "Check in thành công"
           : attendance.attendance_message === "checkout"
-          ? "Checkout thành công"
+          ? "Check out thành công"
           : "Thành công";
     }
 
-    // Cập nhật trạng thái đi sớm/đi muộn
-    if (checkinStatusElement) {
-      if (attendance.checkin_status) {
-        checkinStatusElement.textContent = attendance.checkin_status;
-        checkinStatusElement.style.backgroundColor = attendance.checkin_flag
-          ? "lightcoral" // Đi muộn (màu đỏ nhạt)
-          : "lightgreen"; // Đi sớm (màu xanh nhạt)
+    // Cập nhật trạng thái theo loại điểm danh
+    if (statusElement) {
+      let statusText, statusColor;
+      
+      if (attendance.attendance_message === "checkin") {
+        // Trạng thái check-in
+        statusText = attendance.checkin_status || "N/A";
+        statusColor = attendance.checkin_flag ? "lightgreen" : "lightcoral"; // Ngược lại với logic cũ
+      } else if (attendance.attendance_message === "checkout") {
+        // Trạng thái check-out
+        statusText = attendance.checkout_status || "N/A";
+        statusColor = attendance.checkout_flag ? "lightgreen" : "lightcoral";
       } else {
-        checkinStatusElement.textContent = "N/A";
-        checkinStatusElement.style.backgroundColor = "transparent";
+        statusText = "N/A";
+        statusColor = "transparent";
       }
+      
+      statusElement.textContent = statusText;
+      statusElement.style.backgroundColor = statusColor;
     }
   });
 }

@@ -66,8 +66,8 @@ git pull origin dev
 2. **Cài đặt môi trường ảo:**
 
    ```bash
-   python -m venv myenv
-   python -3.11 -m venv #Trong trường hợp nhiều version
+   py -m venv myenv
+   py -3.11 -m venv #Trong trường hợp nhiều version
    ```
 
 3. **Khởi động môi trường ảo:**
