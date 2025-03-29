@@ -62,6 +62,10 @@ def detect_face(image):
         # Xác định giới hạn bounding box
         x1, x2 = min(x_coords), max(x_coords)
         y1, y2 = min(y_coords), max(y_coords)
+        bbox_width, bbox_height = x2 - x1, y2 - y1
+        if min(bbox_width, bbox_height) < 50:
+            return None, None
+        
         bbox = np.array([(x1, y1), (x2, y1), (x2, y2), (x1, y2)], dtype=np.int32)
         x1, y1, x2, y2 = max(0, x1), max(0, y1), min(img_w, x2), min(img_h, y2)
         return image[y1:y2, x1:x2], bbox
