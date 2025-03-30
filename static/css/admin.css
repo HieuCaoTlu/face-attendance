@@ -1,119 +1,298 @@
-/* CSS cho trang quản trị admin */
+/* CSS chính cho trang admin */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: transparent;
+}
 
-.admin-content {
-  width: 80%;
-  max-width: 1200px;
-  background-color: rgba(255, 255, 255, 0.9);
-  border-radius: 16px;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
-  overflow: hidden;
+header {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding-top: 180px;
+}
+
+.header-left {
+  margin-left: 0;
+}
+
+.header-right {
+  display: flex;
+  gap: 10px;
+}
+
+.square-button {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(9, 6, 50, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 1.6rem;
+  color: white;
+  text-decoration: none;
+}
+
+.add-button:hover {
+  background-color: rgba(1, 76, 206, 0.5);
+}
+
+.power-button {
+  background-color: rgba(206, 1, 1, 0.3);
+}
+
+.power-button:hover {
+  background-color: rgba(206, 1, 1, 0.6);
+}
+
+.square-button:hover {
+  transform: scale(1.05);
+}
+
+.square-button img {
+  width: 25px;
+  height: 25px;
+  filter: invert(100%);
+}
+
+main {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: calc(100vh - 180px);
+  padding: 20px 20px 40px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+h1 {
+  text-align: left;
+  font-size: 2.4rem;
+  margin-bottom: 5px;
+  color: white;
+  text-shadow: 0 0 10px rgba(0, 123, 255, 0.7);
+  align-self: flex-start;
+  width: 100%;
+}
+
+.description {
+  color: white;
+  font-size: 1.4rem;
+  margin-top: 0;
+  margin-bottom: 10px;
+  text-shadow: 0 0 5px rgba(0, 123, 255, 0.7);
+  align-self: flex-start;
+  width: 100%;
+}
+
+.admin-content {
+  width: 100%;
+  background-color: rgba(9, 6, 50, 0.7);
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 0 20px rgba(1, 76, 206, 0.6);
+  overflow: hidden;
+  margin-bottom: 20px;
+  max-width: 1100px;
+  margin: 0 auto 20px auto;
 }
 
 .admin-tabs {
   display: flex;
-  background-color: #f5f5f5;
-  border-bottom: 1px solid #ddd;
+  background-color: rgba(1, 76, 206, 0.3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 .tab {
-  padding: 15px 20px;
+  padding: 15px 0;
   cursor: pointer;
   transition: all 0.3s ease;
-  color: #333;
+  color: white;
+  font-size: 1.4rem;
   font-weight: 500;
   border-bottom: 3px solid transparent;
+  text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+  width: 20%;
+  text-align: center;
 }
 
 .tab:hover {
-  background-color: #e0e0e0;
+  background-color: rgba(1, 76, 206, 0.4);
 }
 
 .tab.active {
-  border-bottom: 3px solid #4285f4;
-  color: #4285f4;
-  background-color: #fff;
+  border-bottom: 3px solid white;
+  background-color: rgba(1, 76, 206, 0.5);
+  font-weight: 600;
 }
 
 .tab-content {
-  flex: 1;
-  overflow-y: auto;
-  max-height: 600px;
+  width: 100%;
+  overflow: auto;
 }
 
 .tab-pane {
   display: none;
   padding: 20px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .tab-pane.active {
   display: block;
 }
 
-/* Table styles */
+.wrapper {
+  background-color: transparent;
+  border: none;
+  padding: 0;
+  margin-bottom: 20px;
+  width: 100%;
+}
+
+.wrapper h2 {
+  color: white;
+  font-size: 1.8rem;
+  margin-top: 0;
+  margin-bottom: 20px;
+  text-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+  padding-bottom: 10px;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
   margin-bottom: 20px;
+  color: white;
+  table-layout: fixed;
 }
 
 table th,
 table td {
-  padding: 12px;
+  padding: 8px 12px;
   text-align: left;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+  font-size: 1.3rem;
+  vertical-align: middle;
+  line-height: 1.4;
 }
 
 table th {
-  background-color: #f5f5f5;
+  background-color: rgba(1, 76, 206, 0.3);
+  color: white;
   font-weight: 500;
-  color: #333;
+  border-top: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 table tr:hover {
-  background-color: #f9f9f9;
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
-/* Button styles */
-.primary-button {
-  background-color: #4285f4;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.3s;
-}
-
-.primary-button:hover {
-  background-color: #2b6bdc;
-}
-
-.cancel-button {
-  background-color: #f44336;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.3s;
-}
-
-.cancel-button:hover {
-  background-color: #d32f2f;
-}
-
-.button-row {
+/* Phần Filter và Search */
+.filter-container {
+  margin-bottom: 20px;
   display: flex;
-  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 10px;
-  margin-top: 20px;
+  align-items: center;
 }
 
-/* Modal styles */
+.input-field {
+  margin-bottom: 0;
+}
+
+.search-bar {
+  flex-grow: 1;
+  max-width: 450px;
+  position: relative;
+}
+
+.search-bar input {
+  width: 100%;
+  height: 40px;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.search-bar label {
+  position: absolute;
+  top: -30px;
+  left: 0;
+  font-size: 14px;
+  color: white;
+}
+
+/* Buttons */
+.primary-button, 
+.cancel-button,
+.button-row button, 
+.edit-btn, 
+.delete-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.3rem;
+  font-weight: 500;
+  height: 40px;
+  transition: all 0.3s;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.primary-button,
+.button-row button:not(.cancel-button),
+.edit-btn {
+  background: linear-gradient(to bottom right, rgba(1, 76, 206, 0.6), transparent 80%);
+  color: white;
+}
+
+.primary-button:hover,
+.button-row button:not(.cancel-button):hover,
+.edit-btn:hover {
+  background: linear-gradient(to bottom right, rgba(1, 76, 206, 0.8), transparent 80%);
+  transform: translateY(-1px);
+}
+
+.cancel-button,
+.delete-btn {
+  background: linear-gradient(to bottom right, rgba(206, 1, 1, 0.6), transparent 80%);
+  color: white;
+}
+
+.cancel-button:hover,
+.delete-btn:hover {
+  background: linear-gradient(to bottom right, rgba(206, 1, 1, 0.8), transparent 80%);
+  transform: translateY(-1px);
+}
+
+/* Style cho chart placeholder */
+.chart-placeholder {
+  background-color: rgba(9, 6, 50, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  min-height: 250px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+/* Cập nhật modal style */
 .modal-overlay {
   display: none;
   position: fixed;
@@ -122,12 +301,52 @@ table tr:hover {
   width: 100%;
   height: 100%;
   background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(5px);
   z-index: 1000;
   justify-content: center;
   align-items: center;
 }
 
-/* Biểu đồ thống kê */
+.modal-overlay .wrapper {
+  background-color: rgba(9, 6, 50, 0.9);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  padding: 25px;
+  width: 100%;
+  max-width: 500px;
+}
+
+/* Cải thiện responsive */
+@media (max-width: 768px) {
+  .admin-tabs {
+    flex-wrap: wrap;
+  }
+  
+  .tab {
+    flex: 1 1 auto;
+    text-align: center;
+    font-size: 1.3rem;
+    padding: 10px;
+    width: auto;
+  }
+  
+  .filter-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  h1 {
+    font-size: 2rem;
+  }
+  
+  .square-button {
+    width: 35px;
+    height: 35px;
+    font-size: 1.5rem;
+  }
+}
+
+/* Style cho phần thống kê */
 .statistics-container {
   display: flex;
   flex-wrap: wrap;
@@ -135,51 +354,31 @@ table tr:hover {
 }
 
 .stat-card {
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  padding: 15px;
   flex: 1 1 calc(50% - 20px);
   min-width: 300px;
 }
 
+.stat-card h3 {
+  color: white;
+  font-size: 1.6rem;
+  margin-bottom: 10px;
+  text-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+}
+
 .full-width {
-  flex: 1 1 100%;
+  flex-basis: 100%;
 }
 
-.chart-placeholder {
-  height: 200px;
-  background-color: #f5f5f5;
-  border-radius: 4px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #777;
-}
-
-/* Filter container */
-.filter-container {
-  display: flex;
-  gap: 15px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-}
-
-/* Checkbox field */
-.checkbox-field {
+.action-buttons {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 5px;
 }
 
-.checkbox-field input[type="checkbox"] {
-  width: auto;
-  height: auto;
-}
-
-/* Error message */
-.error-message {
-  color: #f44336;
-  margin-top: 5px;
-  font-size: 14px;
+footer {
+  text-align: center;
+  color: white;
+  padding: 15px 0;
+  font-size: 1.2rem;
+  opacity: 0.8;
 } 

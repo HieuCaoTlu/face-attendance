@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon" />
+    <link rel="stylesheet" href="/static/css/index.css" />
+    <link rel="stylesheet" href="/static/css/body.css" />
+    <link rel="stylesheet" href="/static/css/train-form.css" />
+    <title>Đăng nhập Admin - Hệ thống chấm công TLU</title>
+  </head>
+  <body>
+    <video autoplay muted loop plays-inline>
+      <source src="/static/videos/bg.mp4" type="video/mp4" />
+    </video>
+
+    <header>
+      <img src="/static/images/icon.png" alt="Icon" />
+    </header>
+
+    <main>
+      <section class="left-section">
+        <h1>Đăng nhập</h1>
+        <p id="description">Vui lòng đăng nhập để truy cập trang quản trị</p>
+      </section>
+
+      <div class="wrapper">
+        <form action="/login" method="post">
+          <h2>LOGIN</h2>
+          {% if error %}
+          <div class="error-message">{{ error }}</div>
+          {% endif %}
+          <div class="input-field">
+            <input type="text" name="username" required>
+            <label>Tên đăng nhập</label>
+          </div>
+          <div class="input-field">
+            <input type="password" name="password" required>
+            <label>Mật khẩu</label>
+          </div>
+          <button id="submit-button" type="submit">Đăng nhập</button>
+        </form>
+      </div>
+
+      <section class="right-section">
+        <a href="/">
+          <div class="button">
+            Chấm công
+            <p>Quay về mục chấm công</p>
+          </div>
+        </a>
+      </section>
+    </main>
+
+    <footer>
+      <h3>Luccihank x HieuCaoTlu</h3>
+    </footer>
+  </body>
+</html> 

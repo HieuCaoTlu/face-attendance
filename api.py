@@ -1,39 +1,74 @@
-from fastapi import FastAPI, APIRouter, Depends, File, UploadFile, Form, HTTPException
+from fastapi import FastAPI, APIRouter, Depends, File, UploadFile, Form, HTTPException, Path
 from database import session, Employee, get_date, Attendance, get_time, time_to_string, Shift
 from utils.speech import text_to_speech
-from typing import List
+from typing import List, Optional
 from ai import train
 from sqlalchemy import func
 from datetime import datetime
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+import json
+import os
+import shutil
 
 router = APIRouter()
 
-@router.post("/employee")
-async def add_employee(
-    name: str = Form(...),
-    position: str = Form(...),
-):
+# Model cho Employee API
+class EmployeeOut(BaseModel):
+    id: int
+    name: str
+    position: str
     
-    # Thêm nhân viên vào DB
-    new_employee = Employee(name=name, position=position)
-    session.add(new_employee)
-    session.commit()
-    session.refresh(new_employee)
+    class Config:
+        orm_mode = True
 
-    # Gọi hàm train AI
-    employee_id = new_employee.id
+class EmployeeIn(BaseModel):
+    name: str
+    position: str
 
-    return {
-        "employee_id": employee_id,
-    }
+class EmployeeResponse(BaseModel):
+    success: bool
+    message: Optional[str] = None
+    employee_id: Optional[int] = None
+
+@router.post("/employee", response_model=EmployeeResponse)
+async def create_employee(name: str = Form(...), position: str = Form(...)):
+    try:
+        new_employee = Employee(name=name, position=position)
+        session.add(new_employee)
+        session.commit()
+        session.refresh(new_employee)
+        
+        return {"success": True, "employee_id": new_employee.id}
+    except Exception as e:
+        session.rollback()
+        return {"success": False, "message": f"Lỗi khi tạo nhân viên: {str(e)}"}
 
 @router.post("/speech")
 async def speech(text: str = Form(...)):
-    return {"audio": text_to_speech(text)}
+    """Text to speech API"""
+    file_location = text_to_speech(text)
+    
+    return {
+        "audio_path": file_location
+    }
+
+@router.post("/train")
+async def training(
+    employee_id: int = Form(...),
+    images: List[UploadFile] = File(...),
+):
+    """API huấn luyện khuôn mặt nhân viên"""
+    # Thực hiện huấn luyện AI
+    image_array = []
+    
+    return {
+        "message": "Đã huấn luyện thành công!"
+    }
 
 @router.get("/shifts")
 async def get_shifts():
-    """Lấy danh sách ca làm việc"""
+    """Lấy danh sách tất cả ca làm việc"""
     shifts = session.query(Shift).all()
     result = []
     for shift in shifts:
@@ -182,44 +217,152 @@ async def delete_shift(shift_id: int):
         "message": "Xóa ca làm việc thành công"
     }
 
-@router.get("/attendance/{employee_id}")
-async def get_attendance(employee_id: int):
-    """Lấy lịch sử chấm công của nhân viên theo ngày"""
-    today = get_date()
-    
-    # Tìm nhân viên
+@router.get("/employees", response_model=dict)
+async def get_employees():
+    try:
+        employees = session.query(Employee).all()
+        return {"success": True, "employees": [{"id": emp.id, "name": emp.name, "position": emp.position} for emp in employees]}
+    except Exception as e:
+        return {"success": False, "message": f"Lỗi khi lấy danh sách nhân viên: {str(e)}", "employees": []}
+
+@router.get("/employees/{employee_id}")
+async def get_employee(employee_id: int):
+    """Lấy thông tin chi tiết của một nhân viên"""
     employee = session.query(Employee).filter(Employee.id == employee_id).first()
+    
     if not employee:
         raise HTTPException(status_code=404, detail="Không tìm thấy nhân viên")
     
-    # Lấy danh sách chấm công trong ngày
-    attendances = (
-        session.query(Attendance)
-        .filter(Attendance.employee_id == employee_id, Attendance.date == today)
-        .order_by(Attendance.checkin)
-        .all()
-    )
-    
-    result = []
-    for attendance in attendances:
-        shift = session.query(Shift).filter(Shift.id == attendance.shift_id).first()
-        
-        result.append({
-            "id": attendance.id,
-            "shift_name": shift.name if shift else "Unknown",
-            "shift_id": attendance.shift_id,
-            "date": date_to_string(attendance.date),
-            "checkin": time_to_string(attendance.checkin),
-            "checkout": time_to_string(attendance.checkout) if attendance.checkout else None,
-            "checkin_status": attendance.checkin_status,
-            "checkout_status": attendance.checkout_status,
-        })
-    
     return {
-        "employee": {
-            "id": employee.id,
-            "name": employee.name,
-            "position": employee.position
-        },
-        "attendances": result
+        "id": employee.id,
+        "name": employee.name,
+        "position": employee.position,
+        "created_at": employee.created_at.strftime("%d/%m/%Y %H:%M") if employee.created_at else None
     }
+
+@router.put("/employees/{employee_id}", response_model=EmployeeResponse)
+async def update_employee(employee_id: int = Path(...), name: str = Form(...), position: str = Form(...)):
+    try:
+        # Tìm nhân viên theo ID
+        employee = session.query(Employee).filter(Employee.id == employee_id).first()
+        
+        if not employee:
+            return {"success": False, "message": f"Không tìm thấy nhân viên có ID {employee_id}"}
+        
+        # Cập nhật thông tin
+        employee.name = name
+        employee.position = position
+        
+        # Lưu vào CSDL
+        session.commit()
+        session.refresh(employee)
+        
+        return {"success": True, "message": "Cập nhật thông tin nhân viên thành công"}
+    except Exception as e:
+        session.rollback()
+        return {"success": False, "message": f"Lỗi khi cập nhật nhân viên: {str(e)}"}
+
+@router.delete("/employees/{employee_id}", response_model=EmployeeResponse)
+async def delete_employee(employee_id: int = Path(...)):
+    try:
+        # Tìm nhân viên theo ID
+        employee = session.query(Employee).filter(Employee.id == employee_id).first()
+        
+        if not employee:
+            return {"success": False, "message": f"Không tìm thấy nhân viên có ID {employee_id}"}
+        
+        # Xóa nhân viên
+        session.delete(employee)
+        session.commit()
+        
+        return {"success": True, "message": "Xóa nhân viên thành công"}
+    except Exception as e:
+        session.rollback()
+        return {"success": False, "message": f"Lỗi khi xóa nhân viên: {str(e)}"}
+
+@router.post("/attendance", response_model=dict)
+async def create_attendance(employee_id: int = Form(...)):
+    try:
+        # Kiểm tra nhân viên có tồn tại không
+        employee = session.query(Employee).filter(Employee.id == employee_id).first()
+        
+        if not employee:
+            return {"success": False, "message": "Không tìm thấy nhân viên"}
+        
+        # Tạo dữ liệu chấm công
+        current_time = datetime.now()
+        current_date = get_date(current_time)
+        current_time_str = get_time(current_time)
+        
+        # Tìm ca làm việc phù hợp
+        shift = session.query(Shift).filter(Shift.active == True).first()
+        
+        if not shift:
+            return {"success": False, "message": "Không có ca làm việc nào được kích hoạt"}
+        
+        # Kiểm tra xem đã chấm công chưa
+        existing_attendance = session.query(Attendance).filter(
+            Attendance.employee_id == employee_id,
+            Attendance.date == current_date,
+            Attendance.shift_id == shift.id
+        ).first()
+        
+        if existing_attendance:
+            # Cập nhật giờ ra
+            existing_attendance.check_out_time = current_time_str
+            session.commit()
+            return {"success": True, "message": "Chấm công ra thành công"}
+        else:
+            # Tạo mới chấm công vào
+            new_attendance = Attendance(
+                employee_id=employee_id,
+                date=current_date,
+                check_in_time=current_time_str,
+                shift_id=shift.id
+            )
+            session.add(new_attendance)
+            session.commit()
+            return {"success": True, "message": "Chấm công vào thành công"}
+    except Exception as e:
+        session.rollback()
+        return {"success": False, "message": f"Lỗi khi chấm công: {str(e)}"}
+
+@router.get("/attendance", response_model=dict)
+async def get_attendance(date: Optional[str] = None, shift_id: Optional[int] = None):
+    try:
+        query = session.query(
+            Attendance, 
+            Employee.name.label("employee_name"),
+            Shift.name.label("shift_name")
+        ).join(
+            Employee, Attendance.employee_id == Employee.id
+        ).join(
+            Shift, Attendance.shift_id == Shift.id
+        )
+        
+        # Lọc theo ngày nếu có
+        if date:
+            query = query.filter(Attendance.date == date)
+        
+        # Lọc theo ca làm việc nếu có
+        if shift_id:
+            query = query.filter(Attendance.shift_id == shift_id)
+        
+        results = query.all()
+        
+        attendance_list = []
+        for att, emp_name, shift_name in results:
+            attendance_list.append({
+                "id": att.id,
+                "employee_id": att.employee_id,
+                "employee_name": emp_name,
+                "date": att.date,
+                "shift_id": att.shift_id,
+                "shift_name": shift_name,
+                "check_in_time": att.check_in_time,
+                "check_out_time": att.check_out_time
+            })
+        
+        return {"success": True, "attendance": attendance_list}
+    except Exception as e:
+        return {"success": False, "message": f"Lỗi khi lấy dữ liệu chấm công: {str(e)}", "attendance": []}

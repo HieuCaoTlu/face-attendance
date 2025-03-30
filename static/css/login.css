@@ -1,0 +1,155 @@
+@import url("/static/css/fonts.css");
+
+/* CSS cho trang đăng nhập */
+main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.login-container {
+  width: 500px;
+  border-radius: 8px;
+  padding: 30px;
+  text-align: center;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  background-color: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.login-form h2 {
+  font-size: 3rem;
+  margin-bottom: 20px;
+  color: #fff;
+  text-transform: lowercase;
+}
+
+.input-field {
+  position: relative;
+  border-bottom: 2px solid #ccc;
+  margin: 20px 0;
+}
+
+.input-field label {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  color: #fff;
+  font-size: 2rem;
+  pointer-events: none;
+  transition: 0.15s ease;
+}
+
+.input-field input {
+  width: 100%;
+  height: 40px;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 2rem;
+  color: #fff;
+}
+
+.input-field input:focus ~ label,
+.input-field input:valid ~ label {
+  font-size: 1.5rem;
+  top: 10px;
+  transform: translateY(-120%);
+}
+
+.login-form a {
+  color: #efefef;
+  text-decoration: none;
+}
+
+.login-form a:hover {
+  text-decoration: underline;
+}
+
+.login-button {
+  background: #fff;
+  color: #000;
+  font-weight: bold;
+  border: none;
+  padding: 12px 20px;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 2rem;
+  border: 2px solid transparent;
+  transition: 0.3s ease;
+  margin-top: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.login-button:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.back-link {
+  margin-top: 20px;
+  text-align: center;
+}
+
+/* CSS cho modal đăng nhập admin */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+}
+
+/* CSS cho thông báo lỗi */
+.error-message {
+  color: #ff4d4d;
+  font-size: 1.4rem;
+  text-align: left;
+  margin-top: 5px;
+  font-weight: 500;
+}
+
+/* CSS cho input password */
+.input-field input[type="password"] {
+  font-family: Verdana, sans-serif;
+  letter-spacing: 0.125em;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .login-container {
+    width: 90%;
+    max-width: 450px;
+    padding: 20px;
+  }
+
+  .login-form h2 {
+    font-size: 2.5rem;
+  }
+
+  .input-field input {
+    font-size: 1.8rem;
+  }
+
+  .input-field label {
+    font-size: 1.8rem;
+  }
+
+  .login-button {
+    font-size: 1.8rem;
+  }
+} 

@@ -9,176 +9,6 @@
     <link rel="stylesheet" href="/static/css/train-form.css" />
     <link rel="stylesheet" href="/static/css/admin.css" />
     <title>Quản trị - Hệ thống chấm công TLU</title>
-    <style>
-      /* Bổ sung CSS đồng bộ với style chung */
-      main {
-        flex-direction: column;
-        align-items: center;
-        margin-top: 20px;
-      }
-      
-      .left-section {
-        width: 100%;
-        max-width: 1200px;
-        text-align: center;
-        align-items: center;
-        transform: none;
-        margin-bottom: 20px;
-      }
-      
-      .admin-content {
-        width: 90%;
-        max-width: 1200px;
-        background-color: rgba(9, 6, 50, 0.7);
-        border-radius: 16px;
-        border: 1px solid rgba(255, 255, 255, 0.4);
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
-        box-shadow: 0 0 20px rgba(1, 76, 206, 0.6);
-        overflow: hidden;
-        margin-bottom: 20px;
-      }
-      
-      .admin-tabs {
-        display: flex;
-        background-color: rgba(1, 76, 206, 0.3);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.4);
-      }
-      
-      .tab {
-        padding: 15px 20px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        color: white;
-        font-size: 1.8rem;
-        font-weight: 500;
-        border-bottom: 3px solid transparent;
-      }
-      
-      .tab:hover {
-        background-color: rgba(1, 76, 206, 0.4);
-      }
-      
-      .tab.active {
-        border-bottom: 3px solid white;
-        background-color: rgba(1, 76, 206, 0.5);
-      }
-      
-      .tab-content {
-        flex: 1;
-        overflow-y: auto;
-        max-height: 600px;
-      }
-      
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 20px;
-        color: white;
-      }
-      
-      table th,
-      table td {
-        padding: 12px;
-        text-align: left;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-        font-size: 1.6rem;
-      }
-      
-      table th {
-        background-color: rgba(1, 76, 206, 0.3);
-        color: white;
-        font-weight: 500;
-      }
-      
-      table tr:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-      }
-      
-      .primary-button, .cancel-button, .button-row button {
-        background: linear-gradient(to bottom right, rgba(1, 76, 206, 0.6), transparent 80%);
-        color: white;
-        border: 1px solid rgba(255, 255, 255, 0.4);
-        padding: 10px 20px;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 1.6rem;
-        transition: all 0.3s;
-        font-weight: 500;
-      }
-      
-      .primary-button:hover, .button-row button:hover {
-        transform: scale(1.05);
-        background: linear-gradient(to bottom right, rgba(1, 76, 206, 0.8), transparent 80%);
-      }
-      
-      .cancel-button {
-        background: linear-gradient(to bottom right, rgba(206, 1, 1, 0.6), transparent 80%);
-      }
-      
-      .cancel-button:hover {
-        transform: scale(1.05);
-        background: linear-gradient(to bottom right, rgba(206, 1, 1, 0.8), transparent 80%);
-      }
-      
-      .wrapper {
-        background-color: rgba(9, 6, 50, 0.7);
-        border: 1px solid rgba(255, 255, 255, 0.4);
-      }
-      
-      .right-section {
-        width: 100%;
-        max-width: 1200px;
-        flex-direction: row;
-        justify-content: center;
-        transform: none;
-      }
-      
-      /* Đồng bộ với CSS button sẵn có */
-      .right-section .button {
-        margin: 0 15px;
-      }
-      
-      .right-section .button:hover {
-        transform: scale(1.05);
-      }
-      
-      .filter-container {
-        background-color: rgba(1, 76, 206, 0.2);
-        border-radius: 8px;
-        padding: 15px;
-        margin-bottom: 20px;
-      }
-      
-      .input-field {
-        margin: 10px 0;
-      }
-      
-      /* Style cho chart placeholder */
-      .chart-placeholder {
-        background-color: rgba(9, 6, 50, 0.5);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-      }
-      
-      /* Cập nhật modal style */
-      .modal-overlay .wrapper {
-        background-color: rgba(9, 6, 50, 0.9);
-      }
-      
-      /* Cải thiện responsive */
-      @media (max-width: 768px) {
-        .admin-tabs {
-          flex-wrap: wrap;
-        }
-        
-        .tab {
-          flex: 1 1 auto;
-          text-align: center;
-          font-size: 1.6rem;
-          padding: 10px;
-        }
-      }
-    </style>
   </head>
   <body>
     <video autoplay muted loop plays-inline>
@@ -186,15 +16,19 @@
     </video>
 
     <header>
-      <img src="/static/images/icon.png" alt="Icon" />
+      <div class="header-left">
+        <h1>QUẢN LÝ HỆ THỐNG CHẤM CÔNG</h1>
+        <p class="description">Chào mừng, Quản trị viên</p>
+      </div>
+      <div class="header-right">
+        <a href="/train" class="square-button add-button" title="Thêm nhân viên mới">+</a>
+        <a href="/logout" class="square-button power-button" title="Đăng xuất">
+          <img src="/static/images/power-button.png" alt="Đăng xuất" title="Đăng xuất">
+        </a>
+      </div>
     </header>
 
     <main>
-      <section class="left-section">
-        <h1>Quản lý hệ thống</h1>
-        <p id="description">Chào mừng trở lại, Quản trị viên</p>
-      </section>
-
       <div class="admin-content">
         <div class="admin-tabs">
           <div class="tab active" data-tab="employees">Danh sách nhân viên</div>
@@ -208,7 +42,15 @@
           <!-- Danh sách nhân viên -->
           <div class="tab-pane active" id="employees-pane">
             <div class="wrapper">
-              <h2>Danh sách nhân viên</h2>
+              <h2>DANH SÁCH NHÂN VIÊN</h2>
+              <div class="filter-container">
+                <div class="input-field search-bar">
+                  <input type="text" id="employee-search" placeholder="Tìm kiếm theo tên, mã hoặc vị trí..." />
+                  <label>Tìm kiếm</label>
+                </div>
+                <button id="search-employee-btn" class="primary-button">Tìm kiếm</button>
+                <button id="reset-employee-filter-btn" class="cancel-button">Đặt lại</button>
+              </div>
               <table class="employee-table">
                 <thead>
                   <tr>
@@ -220,16 +62,18 @@
                 </thead>
                 <tbody id="employee-list">
                   <!-- Dữ liệu sẽ được thêm vào đây bằng JavaScript -->
+                  <tr>
+                    <td colspan="4">Đang tải dữ liệu...</td>
+                  </tr>
                 </tbody>
               </table>
-              <button id="add-employee-btn" class="primary-button">Thêm nhân viên mới</button>
             </div>
           </div>
           
           <!-- Quản lý chấm công -->
           <div class="tab-pane" id="attendance-pane">
             <div class="wrapper">
-              <h2>Quản lý chấm công</h2>
+              <h2>QUẢN LÝ CHẤM CÔNG</h2>
               <div class="filter-container">
                 <div class="input-field">
                   <input type="date" id="attendance-date" />
@@ -266,7 +110,7 @@
           <!-- Xử lý khiếu nại -->
           <div class="tab-pane" id="complaints-pane">
             <div class="wrapper">
-              <h2>Xử lý khiếu nại</h2>
+              <h2>XỬ LÝ KHIẾU NẠI</h2>
               <table class="complaints-table">
                 <thead>
                   <tr>
@@ -288,7 +132,7 @@
           <!-- Biểu đồ thống kê -->
           <div class="tab-pane" id="statistics-pane">
             <div class="wrapper">
-              <h2>Biểu đồ thống kê</h2>
+              <h2>BIỂU ĐỒ THỐNG KÊ</h2>
               <div class="statistics-container">
                 <div class="stat-card">
                   <h3>Thống kê đi muộn</h3>
@@ -315,7 +159,7 @@
           <!-- Cài đặt ca làm -->
           <div class="tab-pane" id="shifts-pane">
             <div class="wrapper">
-              <h2>Cài đặt ca làm</h2>
+              <h2>CÀI ĐẶT CA LÀM</h2>
               <table class="shifts-table">
                 <thead>
                   <tr>
@@ -336,25 +180,10 @@
           </div>
         </div>
       </div>
-
-      <section class="right-section">
-        <a href="/">
-          <div class="button">
-            Chấm công
-            <p>Quay về mục chấm công</p>
-          </div>
-        </a>
-        <a href="/logout">
-          <div class="button" id="logout-btn">
-            Đăng xuất
-            <p>Thoát tài khoản quản trị</p>
-          </div>
-        </a>
-      </section>
     </main>
 
     <footer>
-      <h3>Luccihank x HieuCaoTlu</h3>
+      <p>© 2023 Hệ thống chấm công khuôn mặt TLU</p>
     </footer>
 
     <!-- Modal thêm/sửa nhân viên -->
@@ -410,5 +239,14 @@
     </div>
 
     <script src="/static/js/admin.js" type="module"></script>
+    <script>
+      // Xử lý nút đăng xuất
+      document.querySelector('.power-button').addEventListener('click', function(e) {
+        e.preventDefault();
+        if (confirm('Bạn có chắc muốn đăng xuất?')) {
+          window.location.href = '/logout';
+        }
+      });
+    </script>
   </body>
 </html> 

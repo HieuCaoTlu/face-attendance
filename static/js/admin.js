@@ -23,14 +23,6 @@ document.addEventListener('DOMContentLoaded', function() {
   const employeeForm = document.getElementById('employee-form');
   const employeeList = document.getElementById('employee-list');
   
-  // Mở modal thêm nhân viên
-  document.getElementById('add-employee-btn').addEventListener('click', () => {
-    document.getElementById('employee-modal-title').textContent = 'Thêm nhân viên mới';
-    employeeForm.reset();
-    document.getElementById('employee-id').value = '';
-    employeeModal.style.display = 'flex';
-  });
-  
   // Đóng modal khi click ra ngoài
   employeeModal.addEventListener('click', (e) => {
     if (e.target === employeeModal) {
@@ -44,31 +36,98 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   
   // Xử lý form thêm/sửa nhân viên
-  employeeForm.addEventListener('submit', (e) => {
+  employeeForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
     const employeeId = document.getElementById('employee-id').value;
     const name = document.getElementById('employee-name').value;
     const position = document.getElementById('employee-position').value;
     
-    // TODO: Gửi API thêm/sửa nhân viên
-    
-    // Fake data để demo
-    if (!employeeId) {
-      // Thêm mới
-      const newId = employeeList.children.length + 1;
-      appendEmployeeRow(newId, name, position);
-    } else {
-      // Cập nhật
-      // TODO: Cập nhật row trong bảng
-      alert('Đã cập nhật nhân viên!');
+    try {
+      let response;
+      
+      if (!employeeId) {
+        // Thêm mới nhân viên
+        const formData = new FormData();
+        formData.append('name', name);
+        formData.append('position', position);
+        
+        response = await fetch('/api/employee', {
+          method: 'POST',
+          body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.employee_id) {
+          // Chuyển hướng đến trang train để đăng ký khuôn mặt
+          window.location.href = `/train?employee_id=${data.employee_id}&name=${encodeURIComponent(name)}`;
+          return;
+        }
+      } else {
+        // Cập nhật nhân viên
+        const formData = new FormData();
+        formData.append('name', name);
+        formData.append('position', position);
+        
+        response = await fetch(`/api/employees/${employeeId}`, {
+          method: 'PUT',
+          body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          // Cập nhật trực tiếp dòng trong bảng nếu thành công
+          const row = document.querySelector(`#employee-list tr[data-id="${employeeId}"]`);
+          if (row) {
+            row.querySelector('.employee-name').textContent = name;
+            row.querySelector('.employee-position').textContent = position;
+            row.setAttribute('data-name', name.toLowerCase());
+            row.setAttribute('data-position', position.toLowerCase());
+            // Cập nhật data attributes cho nút sửa
+            const editBtn = row.querySelector('.edit-btn');
+            if (editBtn) {
+              editBtn.dataset.name = name;
+              editBtn.dataset.position = position;
+            }
+          } else {
+            // Nếu không tìm thấy dòng, tải lại danh sách
+            loadEmployees();
+          }
+          
+          employeeModal.style.display = 'none';
+          alert('Cập nhật thông tin nhân viên thành công!');
+        } else {
+          alert(data.message || 'Có lỗi xảy ra khi cập nhật nhân viên');
+        }
+      }
+    } catch (error) {
+      console.error('Lỗi:', error);
+      alert('Có lỗi xảy ra khi xử lý yêu cầu');
     }
-    
-    employeeModal.style.display = 'none';
   });
   
-  // Load danh sách nhân viên demo
-  loadDemoEmployees();
+  // Xử lý tìm kiếm nhân viên
+  const searchEmployeeBtn = document.getElementById('search-employee-btn');
+  const resetEmployeeFilterBtn = document.getElementById('reset-employee-filter-btn');
+  
+  searchEmployeeBtn.addEventListener('click', () => {
+    filterEmployees();
+  });
+  
+  resetEmployeeFilterBtn.addEventListener('click', () => {
+    document.getElementById('employee-search').value = '';
+    filterEmployees();
+  });
+  
+  // Tìm kiếm khi nhấn Enter
+  document.getElementById('employee-search').addEventListener('keyup', (e) => {
+    if (e.key === 'Enter') filterEmployees();
+  });
+  
+  // Load danh sách nhân viên từ API
+  loadEmployees();
 
   // QUẢN LÝ CA LÀM VIỆC
   const shiftModal = document.getElementById('shiftModal');
@@ -121,8 +180,8 @@ document.addEventListener('DOMContentLoaded', function() {
     shiftModal.style.display = 'none';
   });
   
-  // Load danh sách ca làm việc demo
-  loadDemoShifts();
+  // Load danh sách ca làm việc từ API
+  loadShifts();
 
   // Tab chấm công - đặt ngày mặc định
   document.getElementById('attendance-date').valueAsDate = new Date();
@@ -137,26 +196,30 @@ document.addEventListener('DOMContentLoaded', function() {
 // Thêm dòng nhân viên vào bảng
 function appendEmployeeRow(id, name, position) {
   const row = document.createElement('tr');
+  row.setAttribute('data-id', id);
+  row.setAttribute('data-name', name.toLowerCase());
+  row.setAttribute('data-position', position.toLowerCase());
   row.innerHTML = `
     <td>${id}</td>
-    <td>${name}</td>
-    <td>${position}</td>
-    <td>
+    <td class="employee-name">${name}</td>
+    <td class="employee-position">${position}</td>
+    <td class="action-buttons">
       <button class="edit-btn" data-id="${id}" data-name="${name}" data-position="${position}">Sửa</button>
       <button class="delete-btn" data-id="${id}">Xóa</button>
     </td>
   `;
   
   document.getElementById('employee-list').appendChild(row);
-  
-  // Thêm event listeners cho các nút
-  const editBtn = row.querySelector('.edit-btn');
-  const deleteBtn = row.querySelector('.delete-btn');
-  
-  editBtn.addEventListener('click', function() {
-    const id = this.dataset.id;
-    const name = this.dataset.name;
-    const position = this.dataset.position;
+}
+
+// Thêm event listeners cho các nút trong bảng nhân viên bằng event delegation
+document.getElementById('employee-list').addEventListener('click', function(e) {
+  // Xử lý nút sửa
+  if (e.target.classList.contains('edit-btn')) {
+    const button = e.target;
+    const id = button.dataset.id;
+    const name = button.dataset.name;
+    const position = button.dataset.position;
     
     document.getElementById('employee-modal-title').textContent = 'Sửa nhân viên';
     document.getElementById('employee-id').value = id;
@@ -164,12 +227,63 @@ function appendEmployeeRow(id, name, position) {
     document.getElementById('employee-position').value = position;
     
     document.getElementById('employeeModal').style.display = 'flex';
-  });
+  }
   
-  deleteBtn.addEventListener('click', function() {
+  // Xử lý nút xóa
+  if (e.target.classList.contains('delete-btn')) {
     if (confirm('Bạn có chắc muốn xóa nhân viên này?')) {
-      // TODO: Gửi API xóa
-      row.remove();
+      const button = e.target;
+      const id = button.dataset.id;
+      const row = button.closest('tr');
+      
+      try {
+        fetch(`/api/employees/${id}`, {
+          method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            row.remove();
+            alert('Xóa nhân viên thành công!');
+          } else {
+            alert(data.message || 'Có lỗi xảy ra khi xóa nhân viên');
+          }
+        })
+        .catch(error => {
+          console.error('Lỗi:', error);
+          alert('Có lỗi xảy ra khi xử lý yêu cầu');
+        });
+      } catch (error) {
+        console.error('Lỗi:', error);
+        alert('Có lỗi xảy ra khi xử lý yêu cầu');
+      }
+    }
+  }
+});
+
+// Lọc nhân viên theo các tiêu chí đã nhập
+function filterEmployees() {
+  const searchTerm = document.getElementById('employee-search').value.toLowerCase();
+  
+  const rows = document.querySelectorAll('#employee-list tr');
+  
+  rows.forEach(row => {
+    if (!row.hasAttribute('data-id')) return; // Bỏ qua dòng không phải nhân viên
+    
+    const id = row.getAttribute('data-id').toLowerCase();
+    const name = row.getAttribute('data-name');
+    const position = row.getAttribute('data-position');
+    
+    const matchesSearch = 
+      id.includes(searchTerm) || 
+      name.includes(searchTerm) || 
+      position.includes(searchTerm);
+    
+    // Hiển thị nếu phù hợp với tất cả các điều kiện lọc
+    if (matchesSearch) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
     }
   });
 }
@@ -183,7 +297,7 @@ function appendShiftRow(id, name, checkIn, checkOut, isActive) {
     <td>${checkIn}</td>
     <td>${checkOut}</td>
     <td>${isActive ? 'Hoạt động' : 'Vô hiệu'}</td>
-    <td>
+    <td class="action-buttons">
       <button class="edit-btn" data-id="${id}" data-name="${name}" 
         data-checkin="${checkIn}" data-checkout="${checkOut}" data-active="${isActive}">Sửa</button>
       <button class="delete-btn" data-id="${id}">Xóa</button>
@@ -191,17 +305,120 @@ function appendShiftRow(id, name, checkIn, checkOut, isActive) {
   `;
   
   document.getElementById('shifts-list').appendChild(row);
+}
+
+// Load danh sách nhân viên từ API
+async function loadEmployees() {
+  try {
+    // Xóa dữ liệu cũ
+    const employeeList = document.getElementById('employee-list');
+    employeeList.innerHTML = '';
+    
+    // Lấy danh sách nhân viên từ API
+    const response = await fetch('/api/employees');
+    
+    // Kiểm tra xem API có thành công không
+    if (!response.ok) {
+      throw new Error('Không thể kết nối với API');
+    }
+    
+    const data = await response.json();
+    
+    if (data.employees && data.employees.length > 0) {
+      // Thêm dữ liệu từ API vào bảng
+      data.employees.forEach(employee => {
+        appendEmployeeRow(employee.id, employee.name, employee.position);
+      });
+    } else {
+      // Hiển thị dữ liệu mẫu nếu không có nhân viên từ API
+      console.log('Không có dữ liệu từ API, hiển thị dữ liệu mẫu');
+      loadDemoEmployees();
+    }
+  } catch (error) {
+    console.error('Lỗi khi tải danh sách nhân viên:', error);
+    // Tải dữ liệu mẫu khi có lỗi
+    loadDemoEmployees();
+  }
+}
+
+// Load dữ liệu nhân viên mẫu
+function loadDemoEmployees() {
+  const employees = [
+    { id: 1, name: 'Nguyễn Văn A', position: 'Giám đốc' },
+    { id: 2, name: 'Trần Thị B', position: 'Trưởng phòng nhân sự' },
+    { id: 3, name: 'Lê Văn C', position: 'Nhân viên IT' },
+    { id: 4, name: 'Phạm Thị D', position: 'Kế toán' },
+    { id: 5, name: 'Hoàng Văn E', position: 'Nhân viên kinh doanh' }
+  ];
   
-  // Thêm event listeners cho các nút
-  const editBtn = row.querySelector('.edit-btn');
-  const deleteBtn = row.querySelector('.delete-btn');
+  const employeeList = document.getElementById('employee-list');
+  employeeList.innerHTML = '';
   
-  editBtn.addEventListener('click', function() {
-    const id = this.dataset.id;
-    const name = this.dataset.name;
-    const checkIn = this.dataset.checkin;
-    const checkOut = this.dataset.checkout;
-    const isActive = this.dataset.active === 'true';
+  employees.forEach(emp => {
+    appendEmployeeRow(emp.id, emp.name, emp.position);
+  });
+}
+
+// Load danh sách ca làm việc từ API
+async function loadShifts() {
+  try {
+    // Xóa dữ liệu cũ
+    const shiftsList = document.getElementById('shifts-list');
+    shiftsList.innerHTML = '';
+    
+    // Lấy danh sách ca làm việc từ API
+    const response = await fetch('/api/shifts');
+    
+    // Kiểm tra xem API có thành công không
+    if (!response.ok) {
+      throw new Error('Không thể kết nối với API');
+    }
+    
+    const data = await response.json();
+    
+    if (data.shifts && data.shifts.length > 0) {
+      // Thêm dữ liệu từ API vào bảng
+      data.shifts.forEach(shift => {
+        appendShiftRow(shift.id, shift.name, shift.check_in, shift.check_out, shift.active);
+      });
+    } else {
+      // Hiển thị dữ liệu mẫu nếu không có ca làm việc từ API
+      console.log('Không có dữ liệu từ API, hiển thị dữ liệu mẫu');
+      loadDemoShifts();
+    }
+  } catch (error) {
+    console.error('Lỗi khi tải danh sách ca làm việc:', error);
+    // Tải dữ liệu mẫu khi có lỗi
+    loadDemoShifts();
+  }
+}
+
+// Load demo data cho ca làm việc
+function loadDemoShifts() {
+  const shifts = [
+    { id: 1, name: 'Ca sáng', checkIn: '08:00', checkOut: '12:00', isActive: true },
+    { id: 2, name: 'Ca chiều', checkIn: '13:00', checkOut: '17:00', isActive: true },
+    { id: 3, name: 'Ca tối', checkIn: '18:00', checkOut: '22:00', isActive: false }
+  ];
+  
+  const shiftsList = document.getElementById('shifts-list');
+  shiftsList.innerHTML = '';
+  
+  shifts.forEach(shift => {
+    appendShiftRow(shift.id, shift.name, shift.checkIn, shift.checkOut, shift.isActive);
+  });
+}
+
+// Thêm event listeners cho các nút trong bảng ca làm việc bằng event delegation
+document.getElementById('shifts-list').addEventListener('click', function(e) {
+  // Xử lý nút sửa
+  if (e.target.classList.contains('edit-btn')) {
+    const button = e.target;
+    const id = button.dataset.id;
+    const name = button.dataset.name;
+    const checkIn = button.dataset.checkin;
+    const checkOut = button.dataset.checkout;
+    const isActive = button.dataset.active === 'true';
     
     document.getElementById('shift-modal-title').textContent = 'Sửa ca làm việc';
     document.getElementById('shift-id').value = id;
@@ -211,81 +428,79 @@ function appendShiftRow(id, name, checkIn, checkOut, isActive) {
     document.getElementById('shift-active').checked = isActive;
     
     document.getElementById('shiftModal').style.display = 'flex';
-  });
+  }
   
-  deleteBtn.addEventListener('click', function() {
+  // Xử lý nút xóa
+  if (e.target.classList.contains('delete-btn')) {
     if (confirm('Bạn có chắc muốn xóa ca làm việc này?')) {
-      // TODO: Gửi API xóa
-      row.remove();
+      const button = e.target;
+      const id = button.dataset.id;
+      const row = button.closest('tr');
+      
+      try {
+        fetch(`/api/shifts/${id}`, {
+          method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            row.remove();
+            alert('Xóa ca làm việc thành công!');
+          } else {
+            alert(data.message || 'Có lỗi xảy ra khi xóa ca làm việc');
+          }
+        })
+        .catch(error => {
+          console.error('Lỗi:', error);
+          alert('Có lỗi xảy ra khi xử lý yêu cầu');
+        });
+      } catch (error) {
+        console.error('Lỗi:', error);
+        alert('Có lỗi xảy ra khi xử lý yêu cầu');
+      }
     }
-  });
-}
+  }
+});
 
-// Load demo employees
-function loadDemoEmployees() {
-  const demoEmployees = [
-    { id: 1, name: 'Nguyễn Văn A', position: 'Nhân viên' },
-    { id: 2, name: 'Trần Thị B', position: 'Kế toán' },
-    { id: 3, name: 'Lê Văn C', position: 'IT' }
-  ];
-  
-  demoEmployees.forEach(emp => {
-    appendEmployeeRow(emp.id, emp.name, emp.position);
-  });
-}
-
-// Load demo shifts
-function loadDemoShifts() {
-  const demoShifts = [
-    { id: 1, name: 'Ca sáng', checkIn: '08:00', checkOut: '12:00', active: true },
-    { id: 2, name: 'Ca chiều', checkIn: '13:00', checkOut: '17:00', active: true },
-    { id: 3, name: 'Ca tối', checkIn: '18:00', checkOut: '22:00', active: false }
-  ];
-  
-  demoShifts.forEach(shift => {
-    appendShiftRow(shift.id, shift.name, shift.checkIn, shift.checkOut, shift.active);
-  });
-}
-
-// Load demo attendance data
+// Load demo data cho chấm công
 function loadDemoAttendance() {
-  const attendanceList = document.getElementById('attendance-list');
-  attendanceList.innerHTML = '';
-  
-  const demoAttendance = [
-    { id: 1, name: 'Nguyễn Văn A', shift: 'Ca sáng', checkIn: '08:10', checkOut: '12:00', status: 'Đi muộn' },
-    { id: 2, name: 'Trần Thị B', shift: 'Ca sáng', checkIn: '07:55', checkOut: '12:00', status: 'Đúng giờ' },
-    { id: 3, name: 'Lê Văn C', shift: 'Ca chiều', checkIn: '13:00', checkOut: '16:45', status: 'Về sớm' }
+  const attendances = [
+    { id: 1, empId: 'NV001', name: 'Nguyễn Văn A', shift: 'Ca sáng', checkIn: '07:55', checkOut: '12:05', status: 'Đúng giờ' },
+    { id: 2, empId: 'NV002', name: 'Trần Thị B', shift: 'Ca sáng', checkIn: '08:10', checkOut: '11:50', status: 'Đi muộn' },
+    { id: 3, empId: 'NV003', name: 'Lê Văn C', shift: 'Ca chiều', checkIn: '13:05', checkOut: '16:45', status: 'Về sớm' }
   ];
   
-  demoAttendance.forEach(att => {
+  const tbody = document.getElementById('attendance-list');
+  tbody.innerHTML = '';
+  
+  attendances.forEach(att => {
     const row = document.createElement('tr');
     row.innerHTML = `
-      <td>${att.id}</td>
+      <td>${att.empId}</td>
       <td>${att.name}</td>
       <td>${att.shift}</td>
       <td>${att.checkIn}</td>
       <td>${att.checkOut}</td>
       <td>${att.status}</td>
-      <td>
-        <button class="edit-btn">Sửa</button>
+      <td class="action-buttons">
+        <button class="edit-btn" data-id="${att.id}">Sửa</button>
       </td>
     `;
-    attendanceList.appendChild(row);
+    tbody.appendChild(row);
   });
 }
 
-// Load demo complaints
+// Load demo data cho khiếu nại
 function loadDemoComplaints() {
-  const complaintsList = document.getElementById('complaints-list');
-  complaintsList.innerHTML = '';
-  
-  const demoComplaints = [
-    { id: 1, employee: 'Nguyễn Văn A', date: '2023-05-15', content: 'Máy chấm công lỗi, không nhận diện', status: 'Đang xử lý' },
-    { id: 2, employee: 'Trần Thị B', date: '2023-05-14', content: 'Đã chấm công nhưng không được ghi nhận', status: 'Đã xử lý' }
+  const complaints = [
+    { id: 1, employee: 'Nguyễn Văn A', date: '15/05/2023', content: 'Máy chấm công lỗi, không nhận diện được khuôn mặt', status: 'Đang xử lý' },
+    { id: 2, employee: 'Trần Thị B', date: '12/05/2023', content: 'Chấm công không đúng giờ làm việc', status: 'Đã xử lý' }
   ];
   
-  demoComplaints.forEach(comp => {
+  const tbody = document.getElementById('complaints-list');
+  tbody.innerHTML = '';
+  
+  complaints.forEach(comp => {
     const row = document.createElement('tr');
     row.innerHTML = `
       <td>${comp.id}</td>
@@ -293,12 +508,10 @@ function loadDemoComplaints() {
       <td>${comp.date}</td>
       <td>${comp.content}</td>
       <td>${comp.status}</td>
-      <td>
-        <button class="resolve-btn" data-id="${comp.id}">
-          ${comp.status === 'Đang xử lý' ? 'Xử lý' : 'Chi tiết'}
-        </button>
+      <td class="action-buttons">
+        <button class="edit-btn" data-id="${comp.id}">Xử lý</button>
       </td>
     `;
-    complaintsList.appendChild(row);
+    tbody.appendChild(row);
   });
 } 
