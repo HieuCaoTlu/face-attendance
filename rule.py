@@ -10,45 +10,49 @@ def get_shifts():
     with db_lock:
         return session.query(Shift).filter(Shift.active == True).order_by(Shift.check_in_time).all()
 
-# Kiểm tra xem thời gian hiện tại thuộc ca nào
+# Kiểm tra xem thời gian nào thuộc ca nào theo quy tắc mới:
+# - Nếu thời gian từ 00:00 đến 12:00, thuộc ca 1
+# - Nếu thời gian từ 13:00 đến 23:59, thuộc ca 2
 def get_current_shift(time):
-    today = get_date()
-    current_time = time
     shifts = get_shifts()
+    if not shifts:
+        return None
     
-    for i, shift in enumerate(shifts):
-        # Tính thời gian kết thúc của ca hiện tại
-        shift_end_time = shift.check_out_time
-        
-        # Nếu không phải ca cuối cùng, check thời gian bắt đầu của ca tiếp theo
-        next_shift_start = None
-        if i < len(shifts) - 1:
-            next_shift_start = shifts[i+1].check_in_time
-        
-        # Tính khoảng thời gian của ca
-        # Trường hợp 1: Thời gian hiện tại nằm trong khoảng từ giờ bắt đầu đến giờ kết thúc của ca
-        if shift.check_in_time <= current_time <= shift_end_time:
-            return shift
-        
-        # Trường hợp 2: Thời gian hiện tại nằm trong khoảng từ giờ kết thúc của ca đến giờ bắt đầu của ca tiếp theo (trừ 1 giây)
-        if next_shift_start:
-            # Tính thời điểm 1 giây trước khi ca tiếp theo bắt đầu
-            next_shift_start_dt = datetime.combine(today, next_shift_start)
-            one_second_before = (next_shift_start_dt - timedelta(seconds=1)).time()
-            
-            if shift_end_time < current_time <= one_second_before:
-                return shift
+    # Sắp xếp ca làm việc theo thứ tự thời gian bắt đầu
+    shifts = sorted(shifts, key=lambda x: x.check_in_time)
     
-    # Nếu không thuộc ca nào, trả về ca gần nhất
-    if current_time < shifts[0].check_in_time:
-        return shifts[0]  # Ca đầu tiên
-    else:
-        # Tìm ca gần nhất (check nếu thời gian hiện tại sau giờ kết thúc của ca cuối cùng)
-        for i in range(len(shifts)-1, -1, -1):
-            if current_time > shifts[i].check_out_time:
-                return shifts[i]
-        
-        return shifts[-1]  # Mặc định trả về ca cuối cùng nếu không tìm thấy
+    # Giả sử shifts[0] là ca 1 và shifts[1] (nếu có) là ca 2
+    if len(shifts) >= 1:
+        # Thời gian từ 00:00 đến 12:00 thuộc ca 1
+        if time.hour < 13:
+            return shifts[0]
+        # Thời gian từ 13:00 đến 23:59 thuộc ca 2
+        else:
+            # Nếu có ca 2, trả về ca 2, nếu không có ca 2 thì trả về ca 1
+            return shifts[1] if len(shifts) > 1 else shifts[0]
+    
+    return None
+
+# Hàm lấy ca làm việc phù hợp dựa trên thời gian (để xử lý khiếu nại)
+def get_appropriate_shift(time):
+    shifts = get_shifts()
+    if not shifts:
+        return None
+    
+    # Sắp xếp ca làm việc theo thứ tự thời gian bắt đầu
+    shifts = sorted(shifts, key=lambda x: x.check_in_time)
+    
+    # Giả sử shifts[0] là ca 1 và shifts[1] (nếu có) là ca 2
+    if len(shifts) >= 1:
+        # Thời gian từ 00:00 đến 12:00 thuộc ca 1
+        if time.hour < 13:
+            return shifts[0]
+        # Thời gian từ 13:00 đến 23:59 thuộc ca 2
+        else:
+            # Nếu có ca 2, trả về ca 2, nếu không có ca 2 thì trả về ca 1
+            return shifts[1] if len(shifts) > 1 else shifts[0]
+    
+    return None
 
 # Kiểm tra điều kiện check-in
 def validate_checkin(time, shift):
@@ -109,9 +113,10 @@ def determine_attendance_type(employee_id, current_time):
             .all()
         )
     
-    # Lấy danh sách ca làm việc
-    shifts = get_shifts()
+    # Lấy ca làm việc hiện tại dựa trên quy tắc mới
     current_shift = get_current_shift(current_time)
+    if not current_shift:
+        return "error", None, False, "Không tìm thấy ca làm việc phù hợp"
     
     # Kiểm tra xem có chấm công nào cho ca hiện tại chưa
     current_shift_attendance = None
@@ -126,38 +131,7 @@ def determine_attendance_type(employee_id, current_time):
         is_valid, status = validate_checkin(current_time, current_shift)
         return "checkin", current_shift.id, is_valid, status
     
-    # Trường hợp 2: Đã có check-in nhưng chưa có check-out
-    if current_shift_attendance.checkout is None:
-        # Cập nhật check-out cho ca hiện tại
-        is_valid, status = validate_checkout(current_time, current_shift)
-        return "checkout", current_shift.id, is_valid, status
-    
-    # Trường hợp 3: Ca hiện tại đã có đủ check-in và check-out
-    # Nếu có ca tiếp theo và thời gian hiện tại phù hợp, tạo check-in cho ca tiếp theo
-    next_shift_index = -1
-    for i, shift in enumerate(shifts):
-        if shift.id == current_shift.id and i < len(shifts) - 1:
-            next_shift_index = i + 1
-            break
-    
-    if next_shift_index >= 0:
-        next_shift = shifts[next_shift_index]
-        # Kiểm tra xem đã có chấm công cho ca tiếp theo chưa
-        next_shift_attendance = None
-        for attendance in attendances:
-            if attendance.shift_id == next_shift.id:
-                next_shift_attendance = attendance
-                break
-        
-        if next_shift_attendance is None:
-            # Tạo check-in mới cho ca tiếp theo
-            is_valid, status = validate_checkin(current_time, next_shift)
-            return "checkin", next_shift.id, is_valid, status
-        elif next_shift_attendance.checkout is None:
-            # Cập nhật check-out cho ca tiếp theo
-            is_valid, status = validate_checkout(current_time, next_shift)
-            return "checkout", next_shift.id, is_valid, status
-    
-    # Trường hợp mặc định: nếu không có ca nào phù hợp, tạo check-in cho ca hiện tại
-    is_valid, status = validate_checkin(current_time, current_shift)
-    return "checkin", current_shift.id, is_valid, status
+    # Trường hợp 2: Đã có check-in nhưng chưa có check-out (hoặc muốn cập nhật check-out)
+    # Cập nhật check-out cho ca hiện tại
+    is_valid, status = validate_checkout(current_time, current_shift)
+    return "checkout", current_shift.id, is_valid, status

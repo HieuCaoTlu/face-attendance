@@ -304,9 +304,13 @@
                   </div>
                 </div>
                 
-                <div class="complaint-actions">
-                  <button id="approve-complaint" class="primary-button">Duyệt</button>
-                  <button id="reject-complaint" class="cancel-button">Không duyệt</button>
+                <div class="modal-actions">
+                  <button id="approve-complaint" class="approve-btn" onclick="processComplaint('approve')">
+                    <i class="fas fa-check"></i> Duyệt khiếu nại
+                  </button>
+                  <button id="reject-complaint" class="reject-btn" onclick="processComplaint('reject')">
+                    <i class="fas fa-times"></i> Không duyệt
+                  </button>
                 </div>
               </div>
             </div>
@@ -317,23 +321,41 @@
             <div class="wrapper">
               <h2>BIỂU ĐỒ THỐNG KÊ</h2>
               <div class="statistics-container">
-                <div class="stat-card">
-                  <h3>Thống kê đi muộn</h3>
-                  <div class="chart-placeholder" id="late-chart">
-                    <p>Biểu đồ sẽ hiển thị ở đây</p>
-                  </div>
+                <div class="statistics-filters">
+                  <select id="stat-month-filter">
+                    <option value="1">Tháng 1</option>
+                    <option value="2">Tháng 2</option>
+                    <option value="3">Tháng 3</option>
+                    <option value="4">Tháng 4</option>
+                    <option value="5">Tháng 5</option>
+                    <option value="6">Tháng 6</option>
+                    <option value="7">Tháng 7</option>
+                    <option value="8">Tháng 8</option>
+                    <option value="9">Tháng 9</option>
+                    <option value="10">Tháng 10</option>
+                    <option value="11">Tháng 11</option>
+                    <option value="12">Tháng 12</option>
+                  </select>
+                  <select id="stat-year-filter">
+                    <option value="2024">2024</option>
+                    <option value="2025">2025</option>
+                  </select>
+                  <button id="apply-stat-filter">Áp dụng</button>
                 </div>
-                <div class="stat-card">
-                  <h3>Thống kê về sớm</h3>
-                  <div class="chart-placeholder" id="early-chart">
-                    <p>Biểu đồ sẽ hiển thị ở đây</p>
-                  </div>
+                
+                <div class="chart-wrapper">
+                  <div class="chart-title">Thống kê đi muộn</div>
+                  <div id="late-chart"></div>
                 </div>
-                <div class="stat-card full-width">
-                  <h3>Số giờ làm việc theo tháng</h3>
-                  <div class="chart-placeholder" id="monthly-chart">
-                    <p>Biểu đồ sẽ hiển thị ở đây</p>
-                  </div>
+                
+                <div class="chart-wrapper">
+                  <div class="chart-title">Thống kê về sớm</div>
+                  <div id="early-chart"></div>
+                </div>
+                
+                <div class="chart-wrapper">
+                  <div class="chart-title">Số giờ làm việc theo tháng</div>
+                  <div id="monthly-chart"></div>
                 </div>
               </div>
             </div>

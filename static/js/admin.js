@@ -637,30 +637,60 @@ async function loadAttendance() {
 
 async function loadStatisticsCharts() {
   try {
-    const response = await fetch('/api/attendance');
+    // Lấy tháng và năm từ bộ lọc
+    const selectedMonth = document.getElementById('stat-month-filter').value;
+    const selectedYear = document.getElementById('stat-year-filter').value;
+    
+    console.log(`Đang tải biểu đồ thống kê cho tháng ${selectedMonth}/${selectedYear}`);
+    
+    // Đặt mặc định cho tháng hiện tại
+    const currentDate = new Date();
+    if (!document.getElementById('stat-month-filter').value) {
+      document.getElementById('stat-month-filter').value = currentDate.getMonth() + 1;
+    }
+    if (!document.getElementById('stat-year-filter').value) {
+      document.getElementById('stat-year-filter').value = currentDate.getFullYear();
+    }
+    
+    // Hiển thị loading indicator
+    document.getElementById('late-chart').innerHTML = '<div class="loading-spinner"></div>';
+    document.getElementById('early-chart').innerHTML = '<div class="loading-spinner"></div>';
+    document.getElementById('monthly-chart').innerHTML = '<div class="loading-spinner"></div>';
+    
+    // Lấy dữ liệu từ API với tháng/năm đã chọn
+    const response = await fetch(`/api/attendance?month=${selectedMonth}&year=${selectedYear}`);
+    
+    if (!response.ok) {
+      throw new Error(`Lỗi HTTP: ${response.status}`);
+    }
+    
     const data = await response.json();
     
-    if (data.attendance && data.attendance.length > 0) {
-      const formattedData = formatAttendanceData(data.attendance);
-      
-      // Tạo các biểu đồ
-      createLateChart(formattedData);
-      createEarlyChart(formattedData);
-      createMonthlyChart(formattedData);
-      
-      // Cập nhật số liệu tổng hợp
-      updateAttendanceSummary(formattedData);
-    } else {
-      // Nếu không có dữ liệu hoặc có lỗi, hiển thị thông báo
-      document.getElementById('late-chart').innerHTML = '<p>Không có dữ liệu để hiển thị</p>';
-      document.getElementById('early-chart').innerHTML = '<p>Không có dữ liệu để hiển thị</p>';
-      document.getElementById('monthly-chart').innerHTML = '<p>Không có dữ liệu để hiển thị</p>';
+    // Xử lý dữ liệu
+    const attendanceData = data.attendance || [];
+    
+    if (attendanceData.length === 0) {
+      document.getElementById('late-chart').innerHTML = '<div class="no-data-message">Không có dữ liệu cho khoảng thời gian đã chọn</div>';
+      document.getElementById('early-chart').innerHTML = '<div class="no-data-message">Không có dữ liệu cho khoảng thời gian đã chọn</div>';
+      document.getElementById('monthly-chart').innerHTML = '<div class="no-data-message">Không có dữ liệu cho khoảng thời gian đã chọn</div>';
+      return;
     }
+    
+    // Tạo các biểu đồ
+    const lateStats = processLateStatistics(attendanceData);
+    createLateChart(lateStats);
+    
+    const earlyStats = processEarlyStatistics(attendanceData);
+    createEarlyChart(earlyStats);
+    
+    const monthlyStats = processMonthlyStatistics(attendanceData);
+    createMonthlyChart(monthlyStats);
+    
   } catch (error) {
-    console.error('Lỗi khi tải dữ liệu biểu đồ:', error);
-    document.getElementById('late-chart').innerHTML = '<p>Lỗi khi tải dữ liệu</p>';
-    document.getElementById('early-chart').innerHTML = '<p>Lỗi khi tải dữ liệu</p>';
-    document.getElementById('monthly-chart').innerHTML = '<p>Lỗi khi tải dữ liệu</p>';
+    console.error('Lỗi khi tải biểu đồ thống kê:', error);
+    document.getElementById('late-chart').innerHTML = '<div class="error-message">Lỗi khi tải dữ liệu: ' + error.message + '</div>';
+    document.getElementById('early-chart').innerHTML = '<div class="error-message">Lỗi khi tải dữ liệu: ' + error.message + '</div>';
+    document.getElementById('monthly-chart').innerHTML = '<div class="error-message">Lỗi khi tải dữ liệu: ' + error.message + '</div>';
   }
 }
 
@@ -681,7 +711,7 @@ function formatAttendanceData(apiData) {
         name: item.employee_name,
         date: item.date,
         allCheckTimes: [], // Lưu tất cả các thời điểm chấm công theo thứ tự
-        expectedShifts: [] // Lưu thông tin ca dự kiến
+        shiftInfo: {} // Lưu thông tin ca theo id
       };
     }
     
@@ -690,6 +720,7 @@ function formatAttendanceData(apiData) {
       groupedByEmployeeAndDate[key].allCheckTimes.push({
         time: item.check_in_time,
         type: 'in',
+        shiftId: item.shift_id,
         expected: item.expected_check_in
       });
     }
@@ -698,25 +729,19 @@ function formatAttendanceData(apiData) {
       groupedByEmployeeAndDate[key].allCheckTimes.push({
         time: item.check_out_time,
         type: 'out',
+        shiftId: item.shift_id,
         expected: item.expected_check_out
       });
     }
     
-    // Lưu thông tin ca dự kiến nếu chưa có
-    const shiftInfo = {
-      shiftId: item.shift_id,
-      shiftName: item.shift_name,
-      expectedCheckIn: item.expected_check_in,
-      expectedCheckOut: item.expected_check_out
-    };
-    
-    // Kiểm tra xem ca này đã tồn tại chưa
-    const existingShift = groupedByEmployeeAndDate[key].expectedShifts.find(
-      s => s.shiftId === shiftInfo.shiftId
-    );
-    
-    if (!existingShift) {
-      groupedByEmployeeAndDate[key].expectedShifts.push(shiftInfo);
+    // Lưu thông tin ca
+    if (!groupedByEmployeeAndDate[key].shiftInfo[item.shift_id]) {
+      groupedByEmployeeAndDate[key].shiftInfo[item.shift_id] = {
+        shiftId: item.shift_id,
+        shiftName: item.shift_name,
+        expectedCheckIn: item.expected_check_in,
+        expectedCheckOut: item.expected_check_out
+      };
     }
   });
   
@@ -741,115 +766,96 @@ function formatAttendanceData(apiData) {
       lateMinutes: 0,
       earlyMinutes: 0,
       workHours: 0,
-      shiftCount: 0, // Sẽ được tính sau khi đã xác định các ca có đủ check-in và check-out
+      shiftCount: 0, // Sẽ được tính sau khi đã xác định các ca
       note: 'Đúng giờ'
     };
     
-    // Sắp xếp ca dự kiến theo thời gian bắt đầu
-    record.expectedShifts.sort((a, b) => {
+    // Lấy thông tin ca từ record
+    const shifts = Object.values(record.shiftInfo);
+    
+    // Sắp xếp ca theo thời gian bắt đầu
+    shifts.sort((a, b) => {
       if (!a.expectedCheckIn) return 1;
       if (!b.expectedCheckIn) return -1;
       return convertTimeToMinutes(a.expectedCheckIn) - convertTimeToMinutes(b.expectedCheckIn);
     });
     
-    // Xử lý thời gian chấm công cho từng ca
-    if (record.allCheckTimes.length > 0) {
-      // Ca 1: Lấy thời gian chấm công đầu tiên làm check in
-      attendanceRecord.checkIn1 = record.allCheckTimes[0].time;
+    // Phân loại các lần chấm công theo ca
+    const shift1CheckTimes = [];
+    const shift2CheckTimes = [];
+    
+    // Quy tắc mới: thời gian 00:00-12:00 thuộc ca 1, 13:00-23:59 thuộc ca 2
+    record.allCheckTimes.forEach(checkTime => {
+      const hourValue = parseInt(checkTime.time.split(':')[0]);
+      if (hourValue < 13) {
+        shift1CheckTimes.push(checkTime);
+      } else {
+        shift2CheckTimes.push(checkTime);
+      }
+    });
+    
+    // Xử lý dữ liệu cho ca 1
+    if (shift1CheckTimes.length > 0) {
+      // Check in cho ca 1 là lần chấm công đầu tiên
+      attendanceRecord.checkIn1 = shift1CheckTimes[0].time;
       
-      // Tính số phút đi muộn cho ca 1 nếu có
-      if (record.expectedShifts.length > 0 && record.expectedShifts[0].expectedCheckIn) {
-        const late = calculateLateMinutes(attendanceRecord.checkIn1, record.expectedShifts[0].expectedCheckIn);
+      // Check out cho ca 1 là lần chấm công cuối cùng
+      if (shift1CheckTimes.length > 1) {
+        attendanceRecord.checkOut1 = shift1CheckTimes[shift1CheckTimes.length - 1].time;
+      }
+      
+      // Tính số phút đi muộn và về sớm cho ca 1
+      if (shifts.length > 0 && shifts[0].expectedCheckIn) {
+        const late = calculateLateMinutes(attendanceRecord.checkIn1, shifts[0].expectedCheckIn);
         attendanceRecord.lateMinutes += late;
       }
       
-      // Xử lý thời gian chấm công ra
-      if (record.allCheckTimes.length >= 2) {
-        // Cố gắng phân chia thời gian chấm công vào hai ca
-        if (record.expectedShifts.length === 1) {
-          // Nếu chỉ có 1 ca dự kiến, lấy thời gian chấm công cuối cùng làm check out ca 1
-          attendanceRecord.checkOut1 = record.allCheckTimes[record.allCheckTimes.length - 1].time;
-          
-          // Tính số phút về sớm nếu có
-          if (record.expectedShifts[0].expectedCheckOut) {
-            const early = calculateEarlyMinutes(attendanceRecord.checkOut1, record.expectedShifts[0].expectedCheckOut);
-            attendanceRecord.earlyMinutes += early;
-          }
-        } else if (record.expectedShifts.length >= 2) {
-          // Nếu có 2 ca dự kiến, chia thời gian chấm công giữa 2 ca
-          
-          // Tìm thời điểm mốc giữa hai ca (giữa check out ca 1 và check in ca 2)
-          const midPoint = convertTimeToMinutes(record.expectedShifts[0].expectedCheckOut) + 
-            (convertTimeToMinutes(record.expectedShifts[1].expectedCheckIn) - 
-             convertTimeToMinutes(record.expectedShifts[0].expectedCheckOut)) / 2;
-          
-          // Xác định thời gian chấm công nào thuộc ca 1 và ca 2
-          let ca1CheckTimes = record.allCheckTimes.filter(t => convertTimeToMinutes(t.time) <= midPoint);
-          let ca2CheckTimes = record.allCheckTimes.filter(t => convertTimeToMinutes(t.time) > midPoint);
-          
-          // Đảm bảo rằng ca 1 có ít nhất 1 thời gian chấm công để check in
-          if (ca1CheckTimes.length > 0) {
-            attendanceRecord.checkIn1 = ca1CheckTimes[0].time;
-            
-            // Nếu ca 1 có nhiều hơn 1 thời gian, thì lấy cái cuối cùng làm check out
-            if (ca1CheckTimes.length > 1) {
-              attendanceRecord.checkOut1 = ca1CheckTimes[ca1CheckTimes.length - 1].time;
-            }
-            
-            // Tính số phút đi muộn và về sớm cho ca 1
-            if (record.expectedShifts[0].expectedCheckIn) {
-              const late = calculateLateMinutes(attendanceRecord.checkIn1, record.expectedShifts[0].expectedCheckIn);
-              attendanceRecord.lateMinutes += late;
-            }
-            
-            if (attendanceRecord.checkOut1 !== 'N/A' && record.expectedShifts[0].expectedCheckOut) {
-              const early = calculateEarlyMinutes(attendanceRecord.checkOut1, record.expectedShifts[0].expectedCheckOut);
-              attendanceRecord.earlyMinutes += early;
-            }
-          }
-          
-          // Xử lý cho ca 2 nếu có
-          if (ca2CheckTimes.length > 0) {
-            attendanceRecord.checkIn2 = ca2CheckTimes[0].time;
-            
-            // Nếu ca 2 có nhiều hơn 1 thời gian, thì lấy cái cuối cùng làm check out
-            if (ca2CheckTimes.length > 1) {
-              attendanceRecord.checkOut2 = ca2CheckTimes[ca2CheckTimes.length - 1].time;
-            }
-            
-            // Tính số phút đi muộn và về sớm cho ca 2
-            if (record.expectedShifts.length > 1) {
-              if (record.expectedShifts[1].expectedCheckIn) {
-                const late = calculateLateMinutes(attendanceRecord.checkIn2, record.expectedShifts[1].expectedCheckIn);
-                attendanceRecord.lateMinutes += late;
-              }
-              
-              if (attendanceRecord.checkOut2 !== 'N/A' && record.expectedShifts[1].expectedCheckOut) {
-                const early = calculateEarlyMinutes(attendanceRecord.checkOut2, record.expectedShifts[1].expectedCheckOut);
-                attendanceRecord.earlyMinutes += early;
-              }
-            }
-          }
-        }
+      if (attendanceRecord.checkOut1 !== 'N/A' && shifts.length > 0 && shifts[0].expectedCheckOut) {
+        const early = calculateEarlyMinutes(attendanceRecord.checkOut1, shifts[0].expectedCheckOut);
+        attendanceRecord.earlyMinutes += early;
+      }
+      
+      // Nếu có đủ cả check in và check out cho ca 1, tăng số ca làm
+      if (attendanceRecord.checkIn1 !== 'N/A' && attendanceRecord.checkOut1 !== 'N/A') {
+        attendanceRecord.shiftCount++;
       }
     }
     
-    // Tính tổng số giờ làm việc và đếm số ca
+    // Xử lý dữ liệu cho ca 2
+    if (shift2CheckTimes.length > 0) {
+      // Check in cho ca 2 là lần chấm công đầu tiên của ca 2
+      attendanceRecord.checkIn2 = shift2CheckTimes[0].time;
+      
+      // Check out cho ca 2 là lần chấm công cuối cùng của ca 2
+      if (shift2CheckTimes.length > 1) {
+        attendanceRecord.checkOut2 = shift2CheckTimes[shift2CheckTimes.length - 1].time;
+      }
+      
+      // Tính số phút đi muộn và về sớm cho ca 2
+      if (shifts.length > 1 && shifts[1].expectedCheckIn) {
+        const late = calculateLateMinutes(attendanceRecord.checkIn2, shifts[1].expectedCheckIn);
+        attendanceRecord.lateMinutes += late;
+      }
+      
+      if (attendanceRecord.checkOut2 !== 'N/A' && shifts.length > 1 && shifts[1].expectedCheckOut) {
+        const early = calculateEarlyMinutes(attendanceRecord.checkOut2, shifts[1].expectedCheckOut);
+        attendanceRecord.earlyMinutes += early;
+      }
+      
+      // Nếu có đủ cả check in và check out cho ca 2, tăng số ca làm
+      if (attendanceRecord.checkIn2 !== 'N/A' && attendanceRecord.checkOut2 !== 'N/A') {
+        attendanceRecord.shiftCount++;
+      }
+    }
+    
+    // Tính tổng số giờ làm việc, chỉ tính trong khoảng giờ quy định của mỗi ca
     attendanceRecord.workHours = calculateWorkHours(
       attendanceRecord.checkIn1, 
       attendanceRecord.checkOut1, 
       attendanceRecord.checkIn2, 
-      attendanceRecord.checkOut2
+      attendanceRecord.checkOut2,
+      shifts
     );
-    
-    // Tính số ca làm việc (chỉ tính khi có đủ cả check-in và check-out)
-    if (attendanceRecord.checkIn1 !== 'N/A' && attendanceRecord.checkOut1 !== 'N/A') {
-      attendanceRecord.shiftCount++;
-    }
-    
-    if (attendanceRecord.checkIn2 !== 'N/A' && attendanceRecord.checkOut2 !== 'N/A') {
-      attendanceRecord.shiftCount++;
-    }
     
     // Xác định ghi chú dựa trên đi muộn và về sớm
     if (attendanceRecord.lateMinutes > 0 && attendanceRecord.earlyMinutes > 0) {
@@ -877,6 +883,79 @@ function formatAttendanceData(apiData) {
   return result;
 }
 
+// Hàm tính tổng số giờ làm việc
+function calculateWorkHours(checkIn1, checkOut1, checkIn2, checkOut2, shifts) {
+  let totalMinutes = 0;
+  
+  // Lấy thông tin ca làm việc
+  let shift1Start = "07:00";
+  let shift1End = "12:00";
+  let shift2Start = "13:00";
+  let shift2End = "19:00";
+  
+  if (shifts && shifts.length > 0) {
+    if (shifts[0]) {
+      shift1Start = shifts[0].expectedCheckIn || shift1Start;
+      shift1End = shifts[0].expectedCheckOut || shift1End;
+    }
+    if (shifts.length > 1 && shifts[1]) {
+      shift2Start = shifts[1].expectedCheckIn || shift2Start;
+      shift2End = shifts[1].expectedCheckOut || shift2End;
+    }
+  }
+  
+  // Tính giờ làm cho ca 1 - chỉ tính trong khoảng thời gian của ca 1
+  if (checkIn1 !== 'N/A' && checkOut1 !== 'N/A') {
+    let effectiveCheckIn = checkIn1;
+    let effectiveCheckOut = checkOut1;
+    
+    // Đảm bảo thời gian check-in không sớm hơn thời gian bắt đầu ca
+    if (convertTimeToMinutes(effectiveCheckIn) < convertTimeToMinutes(shift1Start)) {
+      effectiveCheckIn = shift1Start;
+    }
+    
+    // Đảm bảo thời gian check-out không muộn hơn thời gian kết thúc ca
+    if (convertTimeToMinutes(effectiveCheckOut) > convertTimeToMinutes(shift1End)) {
+      effectiveCheckOut = shift1End;
+    }
+    
+    // Tính số phút làm việc trong ca 1
+    const startMinutes = convertTimeToMinutes(effectiveCheckIn);
+    const endMinutes = convertTimeToMinutes(effectiveCheckOut);
+    
+    if (endMinutes > startMinutes) {
+      totalMinutes += endMinutes - startMinutes;
+    }
+  }
+  
+  // Tính giờ làm cho ca 2 - chỉ tính trong khoảng thời gian của ca 2
+  if (checkIn2 !== 'N/A' && checkOut2 !== 'N/A') {
+    let effectiveCheckIn = checkIn2;
+    let effectiveCheckOut = checkOut2;
+    
+    // Đảm bảo thời gian check-in không sớm hơn thời gian bắt đầu ca
+    if (convertTimeToMinutes(effectiveCheckIn) < convertTimeToMinutes(shift2Start)) {
+      effectiveCheckIn = shift2Start;
+    }
+    
+    // Đảm bảo thời gian check-out không muộn hơn thời gian kết thúc ca
+    if (convertTimeToMinutes(effectiveCheckOut) > convertTimeToMinutes(shift2End)) {
+      effectiveCheckOut = shift2End;
+    }
+    
+    // Tính số phút làm việc trong ca 2
+    const startMinutes = convertTimeToMinutes(effectiveCheckIn);
+    const endMinutes = convertTimeToMinutes(effectiveCheckOut);
+    
+    if (endMinutes > startMinutes) {
+      totalMinutes += endMinutes - startMinutes;
+    }
+  }
+  
+  // Chuyển từ phút sang giờ, làm tròn đến 2 chữ số thập phân
+  return Math.round((totalMinutes / 60) * 100) / 100;
+}
+
 // Hàm tính số phút đi muộn
 function calculateLateMinutes(actualCheckIn, expectedCheckIn) {
   if (!actualCheckIn || !expectedCheckIn) return 0;
@@ -895,35 +974,6 @@ function calculateEarlyMinutes(actualCheckOut, expectedCheckOut) {
   const expected = convertTimeToMinutes(expectedCheckOut);
   
   return expected > actual ? expected - actual : 0;
-}
-
-// Hàm tính tổng số giờ làm việc
-function calculateWorkHours(checkIn1, checkOut1, checkIn2, checkOut2) {
-  let totalMinutes = 0;
-  let shiftCount = 0;
-  
-  // Tính giờ làm cho ca 1
-  if (checkIn1 !== 'N/A' && checkOut1 !== 'N/A') {
-    const startMinutes = convertTimeToMinutes(checkIn1);
-    const endMinutes = convertTimeToMinutes(checkOut1);
-    if (endMinutes > startMinutes) {
-      totalMinutes += endMinutes - startMinutes;
-      shiftCount++;
-    }
-  }
-  
-  // Tính giờ làm cho ca 2
-  if (checkIn2 !== 'N/A' && checkOut2 !== 'N/A') {
-    const startMinutes = convertTimeToMinutes(checkIn2);
-    const endMinutes = convertTimeToMinutes(checkOut2);
-    if (endMinutes > startMinutes) {
-      totalMinutes += endMinutes - startMinutes;
-      shiftCount++;
-    }
-  }
-  
-  // Chuyển từ phút sang giờ, làm tròn đến 2 chữ số thập phân
-  return Math.round((totalMinutes / 60) * 100) / 100;
 }
 
 // Hàm gửi API cập nhật cấu hình ca làm
@@ -1859,33 +1909,31 @@ function resetComplaintsFilter() {
 // Hiển thị chi tiết khiếu nại
 async function showComplaintDetail(complaintId) {
   try {
-    // Lưu ID khiếu nại hiện tại
-    currentComplaintId = parseInt(complaintId);
+    currentComplaintId = complaintId;
+    console.log('Hiển thị chi tiết khiếu nại ID:', complaintId);
     
-    console.log(`Đang hiển thị chi tiết khiếu nại ID: ${complaintId}`);
-    
-    // Tìm thông tin khiếu nại trong dữ liệu đã có
-    const complaint = allComplaintsData.find(item => item.id === currentComplaintId);
-    
+    const complaint = allComplaintsData.find(item => item.id === complaintId);
     if (complaint) {
-      // Hiển thị thông tin chi tiết
-      document.getElementById('detail-employee-id').textContent = complaint.employee_id || '';
-      document.getElementById('detail-employee-name').textContent = complaint.employee_name || '';
-      document.getElementById('detail-complaint-date').textContent = complaint.complaint_date || '';
-      document.getElementById('detail-complaint-time').textContent = complaint.complaint_time || '';
-      document.getElementById('detail-complaint-reason').textContent = complaint.reason || '';
-      document.getElementById('detail-complaint-status').textContent = complaint.status || 'Chưa xử lý';
+      console.log('Thông tin khiếu nại:', complaint);
       
-      // Hiển thị ảnh nếu có
+      // Cập nhật nội dung modal
+      document.getElementById('detail-employee-id').textContent = complaint.employee_id;
+      document.getElementById('detail-employee-name').textContent = complaint.employee_name;
+      document.getElementById('detail-complaint-date').textContent = complaint.complaint_date;
+      document.getElementById('detail-complaint-time').textContent = complaint.complaint_time;
+      document.getElementById('detail-reason').textContent = complaint.reason;
+      document.getElementById('detail-status').textContent = complaint.processed ? complaint.status : 'Chưa xử lý';
+      
+      // Hiển thị ảnh khiếu nại nếu có
       const imageElement = document.getElementById('detail-complaint-image');
       if (complaint.image_path) {
-        imageElement.src = complaint.image_path;
+        imageElement.src = '/' + complaint.image_path;
         imageElement.style.display = 'block';
       } else {
         imageElement.style.display = 'none';
       }
       
-      // Vô hiệu hóa các nút nếu đã xử lý
+      // Cập nhật trạng thái nút duyệt/không duyệt
       const approveBtn = document.getElementById('approve-complaint');
       const rejectBtn = document.getElementById('reject-complaint');
       
@@ -1907,8 +1955,23 @@ async function showComplaintDetail(complaintId) {
         rejectBtn.classList.remove('disabled');
       }
       
-      // Hiển thị modal
+      // Hiển thị modal và thêm class cho body
       document.getElementById('complaint-detail-modal').style.display = 'block';
+      document.body.classList.add('modal-open');
+      
+      // Thêm event listener để đóng modal khi click vào nút đóng
+      document.querySelector('.close-modal').addEventListener('click', function() {
+        document.getElementById('complaint-detail-modal').style.display = 'none';
+        document.body.classList.remove('modal-open');
+      });
+      
+      // Thêm event listener để đóng modal khi click ra ngoài modal
+      document.getElementById('complaint-detail-modal').addEventListener('click', function(event) {
+        if (event.target === this) {
+          this.style.display = 'none';
+          document.body.classList.remove('modal-open');
+        }
+      });
     } else {
       console.error('Không tìm thấy thông tin chi tiết khiếu nại ID:', complaintId);
       Swal.fire({
@@ -1932,183 +1995,118 @@ async function showComplaintDetail(complaintId) {
 }
 
 // Xử lý duyệt/không duyệt khiếu nại
-async function processComplaint(approved) {
-  if (!currentComplaintId) {
-    console.error('Không tìm thấy ID khiếu nại');
-    Swal.fire({
-      title: 'Lỗi!',
-      text: 'Không thể xử lý khiếu nại: Thiếu ID',
-      icon: 'error',
-      confirmButtonColor: '#3085d6',
-      confirmButtonText: 'Đóng'
-    });
-    return;
-  }
-  
+async function processComplaint(action) {
   try {
-    console.log(`Đang xử lý khiếu nại ID: ${currentComplaintId}, Duyệt: ${approved}`);
-    
-    // Lấy thông tin chi tiết về khiếu nại hiện tại
-    const complaintIndex = allComplaintsData.findIndex(item => item.id === currentComplaintId);
-    if (complaintIndex === -1) {
-      throw new Error('Không tìm thấy thông tin khiếu nại');
-    }
-    
-    const complaint = allComplaintsData[complaintIndex];
-    console.log('Thông tin khiếu nại:', complaint);
-    
-    // Tạo dữ liệu gửi đi
-    const requestData = {
-      approved: approved,
-      complaint_date: complaint.complaint_date,
-      complaint_time: complaint.complaint_time,
-      employee_id: complaint.employee_id,
-      processed_date: new Date().toISOString().split('T')[0],
-      processed_time: new Date().toTimeString().split(' ')[0].substring(0, 5)
-    };
-    
-    console.log('Dữ liệu gửi đi:', requestData);
-    
-    if (approved) {
-      // Chuẩn bị dữ liệu chấm công mới để gộp
-      const newCheckTimeData = {
-        employee_id: complaint.employee_id,
-        employee_name: complaint.employee_name,
-        date: complaint.complaint_date,
-        check_in_time: complaint.complaint_time,
-        check_out_time: null,
-        expected_check_in: null, // Sẽ được xác định dựa trên ca
-        expected_check_out: null,
-        shift_id: 1, // Mặc định, sẽ được điều chỉnh dựa trên thời gian
-        shift_name: "Ca 1", // Mặc định, sẽ được điều chỉnh dựa trên thời gian
-        error: false
-      };
-      
-      // Xác định ca dựa trên thời gian khiếu nại và cấu hình ca làm việc
-      const complaintTime = convertTimeToMinutes(complaint.complaint_time);
-      
-      if (shiftsConfig) {
-        // Xác định ca dựa trên thời gian khiếu nại
-        const shift1Start = convertTimeToMinutes(shiftsConfig.shift1.checkIn);
-        const shift1End = convertTimeToMinutes(shiftsConfig.shift1.checkOut);
-        const shift2Start = convertTimeToMinutes(shiftsConfig.shift2.checkIn);
-        const shift2End = convertTimeToMinutes(shiftsConfig.shift2.checkOut);
-        
-        if (complaintTime >= shift1Start && complaintTime <= shift2End) {
-          // Nếu thời gian nằm trong khoảng từ bắt đầu ca 1 đến kết thúc ca 2
-          if (complaintTime <= shift1End) {
-            // Nếu thời gian nằm trong ca 1
-            newCheckTimeData.shift_id = 1;
-            newCheckTimeData.shift_name = "Ca 1";
-            newCheckTimeData.expected_check_in = shiftsConfig.shift1.checkIn;
-            newCheckTimeData.expected_check_out = shiftsConfig.shift1.checkOut;
-          } else {
-            // Nếu thời gian nằm trong ca 2
-            newCheckTimeData.shift_id = 2;
-            newCheckTimeData.shift_name = "Ca 2";
-            newCheckTimeData.expected_check_in = shiftsConfig.shift2.checkIn;
-            newCheckTimeData.expected_check_out = shiftsConfig.shift2.checkOut;
-          }
-        }
-      }
-      
-      // Thêm bản ghi chấm công mới từ khiếu nại vào dữ liệu API
-      const mockApiAttendanceData = {
-        employee_id: newCheckTimeData.employee_id,
-        employee_name: newCheckTimeData.employee_name,
-        date: newCheckTimeData.date,
-        check_in_time: newCheckTimeData.check_in_time,
-        check_out_time: null,
-        expected_check_in: newCheckTimeData.expected_check_in,
-        expected_check_out: newCheckTimeData.expected_check_out,
-        shift_id: newCheckTimeData.shift_id,
-        shift_name: newCheckTimeData.shift_name,
-        error: false
-      };
-      
-      // Thêm bản ghi mới vào dữ liệu API gốc (giả lập)
-      if (!apiAttendanceData) {
-        apiAttendanceData = [];
-      }
-      apiAttendanceData.push(mockApiAttendanceData);
-      
-      // Định dạng lại dữ liệu chấm công
-      allAttendanceData = formatAttendanceData(apiAttendanceData);
-      
-      // Cập nhật dữ liệu hiển thị
-      currentAttendanceData = [...allAttendanceData];
-      displayAttendancePage(attendancePage);
-      createAttendancePagination();
-    }
-    
-    // Gọi API xử lý khiếu nại
-    const formData = new FormData();
-    formData.append('approved', approved);
-    
-    const response = await fetch(`/api/complaints/${currentComplaintId}/process`, {
-      method: 'POST',
-      body: formData
-    });
-    
-    const data = await response.json();
-    
-    if (data.success) {
-      // Cập nhật trạng thái khiếu nại trong mảng dữ liệu
-      if (complaintIndex !== -1) {
-        allComplaintsData[complaintIndex].processed = true;
-        allComplaintsData[complaintIndex].status = approved ? 'Đã xử lý' : 'Không duyệt';
-      }
-      
-      // Ẩn modal
-      document.getElementById('complaint-detail-modal').style.display = 'none';
-      
-      // Hiển thị lại danh sách khiếu nại
-      displayComplaintsPage(complaintsPage);
-      
-      // Thông báo thành công với SweetAlert2
-      if (approved) {
-        let checkInMessage = "";
-        // Tìm bản ghi chấm công sau khi cập nhật
-        const attendanceRecord = allAttendanceData.find(record => 
-          record.date === complaint.complaint_date && record.id == complaint.employee_id
-        );
-        
-        if (attendanceRecord) {
-          checkInMessage = `<br>Đã thêm dữ liệu chấm công cho nhân viên ${complaint.employee_name} vào ngày ${complaint.complaint_date}`;
-        }
-        
-        Swal.fire({
-          title: 'Đã duyệt khiếu nại!',
-          html: `<i class="fas fa-check-circle" style="color: #28a745; font-size: 3rem; margin-bottom: 15px;"></i><br>Khiếu nại của nhân viên <strong>${complaint.employee_name}</strong> đã được duyệt thành công.${checkInMessage}`,
-          icon: 'success',
-          showConfirmButton: true,
-          confirmButtonColor: '#28a745',
-          confirmButtonText: 'Đóng',
-          customClass: {
-            popup: 'swal-custom-popup',
-            title: 'swal-custom-title',
-            confirmButton: 'swal-custom-confirm-button'
-          }
-        });
-      } else {
-        Swal.fire({
-          title: 'Đã từ chối khiếu nại!',
-          html: `<i class="fas fa-times-circle" style="color: #dc3545; font-size: 3rem; margin-bottom: 15px;"></i><br>Khiếu nại của nhân viên <strong>${complaint.employee_name}</strong> không được duyệt.`,
-          icon: 'info',
-          confirmButtonColor: '#dc3545',
-          confirmButtonText: 'Đóng'
-        });
-      }
-    } else {
-      console.error('Lỗi từ server:', data.message);
+    if (!currentComplaintId) {
+      console.error('Không có ID khiếu nại được chọn');
       Swal.fire({
         title: 'Lỗi!',
-        text: data.message || 'Có lỗi xảy ra khi xử lý khiếu nại',
+        text: 'Không có khiếu nại nào được chọn để xử lý',
         icon: 'error',
         confirmButtonColor: '#3085d6',
         confirmButtonText: 'Đóng'
       });
+      return;
     }
+    
+    console.log(`Đang xử lý khiếu nại ID: ${currentComplaintId}, Hành động: ${action}`);
+    
+    // Tìm thông tin khiếu nại
+    const complaint = allComplaintsData.find(item => item.id === currentComplaintId);
+    if (!complaint) {
+      console.error('Không tìm thấy thông tin khiếu nại với ID:', currentComplaintId);
+      Swal.fire({
+        title: 'Lỗi!',
+        text: 'Không tìm thấy thông tin khiếu nại',
+        icon: 'error',
+        confirmButtonColor: '#3085d6',
+        confirmButtonText: 'Đóng'
+      });
+      return;
+    }
+    
+    // Chuẩn bị dữ liệu để gửi
+    const employeeId = complaint.employee_id;
+    const complaintDate = complaint.complaint_date;
+    const complaintTime = complaint.complaint_time;
+    
+    const data = {
+      complaint_id: currentComplaintId,
+      action: action,
+      employee_id: employeeId,
+      complaint_date: complaintDate,
+      complaint_time: complaintTime
+    };
+    
+    // Gửi yêu cầu xử lý
+    const response = await fetch('/api/process_complaint', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Có lỗi xảy ra khi xử lý khiếu nại');
+    }
+    
+    const result = await response.json();
+    
+    // Đóng modal
+    document.getElementById('complaint-detail-modal').style.display = 'none';
+    document.body.classList.remove('modal-open');
+    
+    // Hiển thị thông báo thành công
+    if (action === 'approve') {
+      Swal.fire({
+        html: `
+          <div style="display: flex; flex-direction: column; align-items: center;">
+            <i class="fas fa-check-circle" style="font-size: 4rem; color: #28a745; margin-bottom: 1rem;"></i>
+            <h2>Đã duyệt khiếu nại</h2>
+            <p>Khiếu nại đã được duyệt thành công và đã cập nhật chấm công</p>
+          </div>
+        `,
+        showConfirmButton: true,
+        confirmButtonText: 'Đóng',
+        confirmButtonColor: '#28a745',
+        showClass: {
+          popup: 'animate__animated animate__fadeIn faster'
+        },
+        hideClass: {
+          popup: 'animate__animated animate__fadeOut faster'
+        }
+      });
+    } else {
+      Swal.fire({
+        html: `
+          <div style="display: flex; flex-direction: column; align-items: center;">
+            <i class="fas fa-times-circle" style="font-size: 4rem; color: #dc3545; margin-bottom: 1rem;"></i>
+            <h2>Đã từ chối khiếu nại</h2>
+            <p>Khiếu nại đã bị từ chối và sẽ không cập nhật chấm công</p>
+          </div>
+        `,
+        showConfirmButton: true,
+        confirmButtonText: 'Đóng',
+        confirmButtonColor: '#dc3545',
+        showClass: {
+          popup: 'animate__animated animate__fadeIn faster'
+        },
+        hideClass: {
+          popup: 'animate__animated animate__fadeOut faster'
+        }
+      });
+    }
+    
+    // Cập nhật dữ liệu khiếu nại trong danh sách
+    complaint.processed = true;
+    complaint.status = action === 'approve' ? 'Đã duyệt' : 'Không duyệt';
+    
+    // Cập nhật giao diện
+    await loadComplaints();
+    
+    console.log('Xử lý khiếu nại thành công:', result);
   } catch (error) {
     console.error('Lỗi khi xử lý khiếu nại:', error);
     Swal.fire({
@@ -2293,5 +2291,37 @@ function hideError() {
     errorMessage.style.display = 'none';
   }
 }
+
+// ... existing code ...
+
+// Thêm sự kiện cho nút áp dụng bộ lọc thống kê
+document.addEventListener('DOMContentLoaded', function() {
+  // Đặt giá trị mặc định cho bộ lọc là tháng và năm hiện tại
+  const currentDate = new Date();
+  if (document.getElementById('stat-month-filter')) {
+    document.getElementById('stat-month-filter').value = currentDate.getMonth() + 1;
+  }
+  if (document.getElementById('stat-year-filter')) {
+    document.getElementById('stat-year-filter').value = currentDate.getFullYear();
+  }
+  
+  // Thêm sự kiện cho nút áp dụng
+  const applyButton = document.getElementById('apply-stat-filter');
+  if (applyButton) {
+    applyButton.addEventListener('click', function() {
+      loadStatisticsCharts();
+    });
+  }
+  
+  // Tải biểu đồ khi chuyển đến tab thống kê
+  const statisticsTab = document.querySelector('.tab[data-tab="statistics"]');
+  if (statisticsTab) {
+    statisticsTab.addEventListener('click', function() {
+      setTimeout(() => {
+        loadStatisticsCharts();
+      }, 300);
+    });
+  }
+});
 
 // ... existing code ... 

@@ -344,44 +344,47 @@ async def create_attendance(employee_id: int = Form(...)):
     try:
         # Kiểm tra nhân viên có tồn tại không
         employee = session.query(Employee).filter(Employee.id == employee_id).first()
-        
         if not employee:
             return {"success": False, "message": "Không tìm thấy nhân viên"}
         
         # Tạo dữ liệu chấm công
         current_time = datetime.now()
         current_date = get_date(current_time)
-        current_time_str = get_time(current_time)
+        current_time_obj = current_time.time()
         
-        # Tìm ca làm việc phù hợp
-        shift = session.query(Shift).filter(Shift.active == True).first()
+        # Xác định ca làm việc dựa vào thời gian
+        from rule import get_current_shift
         
-        if not shift:
-            return {"success": False, "message": "Không có ca làm việc nào được kích hoạt"}
+        # Xác định ca dựa trên thời gian hiện tại
+        current_shift = get_current_shift(current_time_obj)
+        if not current_shift:
+            return {"success": False, "message": "Không thể xác định ca làm việc"}
         
-        # Kiểm tra xem đã chấm công chưa
+        # Kiểm tra xem nhân viên đã chấm công cho ca hiện tại chưa
         existing_attendance = session.query(Attendance).filter(
             Attendance.employee_id == employee_id,
             Attendance.date == current_date,
-            Attendance.shift_id == shift.id
+            Attendance.shift_id == current_shift.id
         ).first()
         
         if existing_attendance:
-            # Cập nhật giờ ra
-            existing_attendance.check_out_time = current_time_str
+            # Nếu đã có check-in cho ca này, cập nhật check-out
+            existing_attendance.checkout = current_time_obj
+            existing_attendance.checkout_status = True
             session.commit()
-            return {"success": True, "message": "Chấm công ra thành công"}
+            return {"success": True, "message": f"Chấm công ra thành công cho ca {current_shift.name}"}
         else:
             # Tạo mới chấm công vào
             new_attendance = Attendance(
                 employee_id=employee_id,
                 date=current_date,
-                check_in_time=current_time_str,
-                shift_id=shift.id
+                checkin=current_time_obj,
+                checkin_status=True,
+                shift_id=current_shift.id
             )
             session.add(new_attendance)
             session.commit()
-            return {"success": True, "message": "Chấm công vào thành công"}
+            return {"success": True, "message": f"Chấm công vào thành công cho ca {current_shift.name}"}
     except Exception as e:
         session.rollback()
         return {"success": False, "message": f"Lỗi khi chấm công: {str(e)}"}
@@ -432,7 +435,8 @@ async def get_attendance(date: Optional[str] = None, shift_id: Optional[int] = N
                 "expected_check_in": time_to_string(expected_check_in) if expected_check_in else "08:00",
                 "expected_check_out": time_to_string(expected_check_out) if expected_check_out else "17:00",
                 "checkin_status": att.checkin_status if hasattr(att, 'checkin_status') else None,
-                "checkout_status": att.checkout_status if hasattr(att, 'checkout_status') else None
+                "checkout_status": att.checkout_status if hasattr(att, 'checkout_status') else None,
+                "error": False  # Mặc định không có lỗi
             })
         
         print(f"Tìm thấy {len(attendance_list)} bản ghi chấm công")
