@@ -52,6 +52,19 @@ class Attendance(BaseModel):
     employee = relationship('Employee', back_populates='attendances')
     shift = relationship('Shift')
 
+# 🔹 Bảng Complaint (Khiếu nại)
+class Complaint(BaseModel):
+    __tablename__ = 'complaints'
+    
+    id = Column(Integer, primary_key=True)
+    employee_id = Column(Integer, ForeignKey('employees.id'), nullable=False)
+    complaint_time = Column(DateTime, default=get_accruate)
+    reason = Column(String, nullable=False)
+    image_path = Column(String, nullable=False)
+    status = Column(String, default="Chưa xử lý")
+    processed = Column(Boolean, default=False)
+    employee = relationship('Employee')
+
 # 🔹 Định nghĩa Model
 class Embedding(Base):
     __tablename__ = 'embeddings'
@@ -78,6 +91,14 @@ Base.metadata.create_all(engine)
 # 🔹 Khởi tạo session
 Session = sessionmaker(bind=engine)
 session = Session()
+
+# Hàm để tạo session mới khi cần
+def get_db():
+    db = Session()
+    try:
+        yield db
+    finally:
+        db.close()
 
 # 🔹 Tạo ca làm việc mặc định nếu chưa có
 def init_shifts():

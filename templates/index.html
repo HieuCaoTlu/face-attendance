@@ -9,6 +9,308 @@
     <link rel="stylesheet" href="/static/css/predict-form.css" />
     <link rel="stylesheet" href="/static/css/train-form.css" />
     <title>Hệ thống chấm công TLU</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" defer></script>
+    <style>
+      /* CSS tùy chỉnh cho modal */
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.8);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s ease;
+        backdrop-filter: blur(5px);
+      }
+
+      .modal-overlay.show {
+        opacity: 1;
+        visibility: visible;
+        display: flex;
+      }
+
+      #fullscreenModal .wrapper {
+        background-color: rgba(20, 20, 20, 0.9);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        max-width: 500px;
+        width: 100%;
+        border-radius: 15px;
+        padding: 35px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        animation: fadeIn 0.3s ease;
+      }
+
+      #fullscreenModal h2 {
+        color: #ffffff;
+        font-weight: bold;
+        font-size: 2.4rem;
+        text-align: center;
+        margin-bottom: 25px;
+        letter-spacing: 1px;
+        font-family: "Heading", sans-serif;
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+      }
+
+      #fullscreenModal .input-field {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin: 14px 0;
+        font-size: 1.4rem;
+        color: white;
+      }
+
+      #fullscreenModal .input-field span:first-child {
+        font-weight: bold;
+        min-width: 130px;
+        color: #ffffff;
+        flex-shrink: 0;
+      }
+
+      #fullscreenModal .input-field span:last-child {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+        padding-bottom: 3px;
+        color: #ffffff;
+        flex-grow: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 1.3rem;
+      }
+
+      #fullscreenModal .input-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 15px;
+        margin: 14px 0;
+      }
+
+      #fullscreenModal .status {
+        padding: 4px 12px;
+        border-radius: 5px;
+        font-weight: bold;
+        background-color: rgba(0, 120, 212, 0.3);
+        display: inline-block;
+      }
+
+      #fullscreenModal button {
+        background-color: #0078d4;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 1.4rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-top: 20px;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+        display: block;
+        margin: 25px auto 0;
+        min-width: 200px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      }
+
+      #fullscreenModal button:hover {
+        background-color: #005fa7;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+      }
+
+      .progress-bar {
+        width: 100%;
+        height: 5px;
+        margin-top: 25px;
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+
+      .progress {
+        height: 100%;
+        background-color: #0078d4;
+        transform-origin: left;
+        transform: scaleX(0);
+      }
+
+      /* CSS cho Modal Khiếu nại */
+      #complaintModal .modal-content {
+        background-color: rgba(20, 20, 20, 0.9);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 15px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        color: white;
+      }
+
+      #complaintModal .modal-header {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 20px 25px;
+      }
+
+      #complaintModal .modal-title {
+        color: #ffffff;
+        font-weight: bold;
+        font-size: 2rem;
+        letter-spacing: 1px;
+        font-family: "Heading", sans-serif;
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        margin: 0;
+      }
+
+      #complaintModal .btn-close {
+        color: white;
+        opacity: 0.8;
+        filter: invert(1) brightness(200%);
+      }
+
+      #complaintModal .modal-body {
+        padding: 25px;
+      }
+
+      #complaintModal .modal-footer {
+        border-top: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 20px 25px;
+      }
+
+      #complaintModal .complaint-image-container {
+        margin-bottom: 25px;
+        text-align: center;
+        border-radius: 12px;
+        overflow: hidden;
+        position: relative;
+        max-height: 300px;
+        background-color: rgba(0, 0, 0, 0.2);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+      }
+
+      #complaintModal #complaint-image {
+        max-width: 100%;
+        max-height: 280px;
+        object-fit: cover;
+        border-radius: 8px;
+        display: block;
+        margin: 0 auto;
+      }
+
+      #complaintModal #retake-photo {
+        position: absolute;
+        bottom: 15px;
+        right: 15px;
+        background-color: rgba(9, 6, 50, 0.8);
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        padding: 8px 15px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 1.3rem;
+        z-index: 10;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s ease;
+      }
+
+      #complaintModal #retake-photo:hover {
+        background-color: rgba(9, 6, 50, 1);
+        transform: translateY(-2px);
+      }
+
+      #complaintModal .input-field {
+        position: relative;
+        margin: 25px 0;
+      }
+
+      #complaintModal .input-field input,
+      #complaintModal .input-field select {
+        width: 100%;
+        background-color: rgba(255, 255, 255, 0.1);
+        border: none;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+        padding: 10px 15px;
+        font-size: 1.3rem;
+        color: white;
+        border-radius: 6px;
+        transition: all 0.3s ease;
+      }
+
+      #complaintModal .input-field input:focus,
+      #complaintModal .input-field select:focus {
+        outline: none;
+        background-color: rgba(255, 255, 255, 0.15);
+        border-bottom-color: #0078d4;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      #complaintModal .input-field label {
+        position: absolute;
+        left: 15px;
+        top: -10px;
+        background-color: rgba(20, 20, 20, 0.8);
+        padding: 0 8px;
+        font-size: 1.2rem;
+        color: rgba(255, 255, 255, 0.8);
+        border-radius: 4px;
+      }
+
+      #complaintModal .input-field input::placeholder {
+        color: rgba(255, 255, 255, 0.5);
+      }
+
+      #complaintModal .primary-button {
+        background-color: #0078d4;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 1.4rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-weight: 500;
+        min-width: 160px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      }
+
+      #complaintModal .primary-button:hover {
+        background-color: #005fa7;
+        transform: translateY(-2px);
+      }
+
+      #complaintModal .cancel-button {
+        background-color: transparent;
+        color: #ddd;
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        padding: 11px 24px;
+        border-radius: 8px;
+        font-size: 1.4rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-weight: 500;
+        min-width: 120px;
+      }
+
+      #complaintModal .cancel-button:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: white;
+      }
+
+      #complaintModal option {
+        background-color: #1a1a1a;
+        color: white;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+    </style>
   </head>
   <body>
     <video autoplay muted loop plays-inline>
@@ -40,7 +342,7 @@
           Quản lý
           <p>Quản lý toàn quyền hệ thống</p>
         </div>
-        <div class="button" id="complaint-btn">
+        <div class="button" id="complaint-btn" data-bs-toggle="modal" data-bs-target="#complaintModal">
           Khiếu nại
           <p>Báo cáo sự cố chấm công</p>
         </div>
@@ -51,10 +353,11 @@
       <h3>Luccihank x HieuCaoTlu</h3>
     </footer>
 
+    <!-- Modal Chấm công thành công -->
     <div id="fullscreenModal" class="modal-overlay">
       <div class="wrapper">
         <form action="">
-          <h2 id="message">Thành công</h2>
+          <h2 id="message">CHẤM CÔNG THÀNH CÔNG</h2>
           <div class="input-field">
             <span>Mã nhân viên:</span>
             <span id="employee_id">...</span>
@@ -97,6 +400,56 @@
       </div>
     </div>
 
+    <!-- Modal Khiếu nại -->
+    <div class="modal fade" id="complaintModal" tabindex="-1" aria-labelledby="complaintModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2 class="modal-title" id="complaintModalLabel">GỬI KHIẾU NẠI</h2>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="complaint-form">
+              <div class="complaint-image-container">
+                <img id="complaint-image" src="#" alt="Ảnh khiếu nại">
+                <button type="button" id="retake-photo" class="secondary-button">Chụp lại</button>
+              </div>
+              <div class="input-field">
+                <input type="text" id="complaint-employee-id" placeholder="Nhập mã nhân viên">
+                <label>Mã nhân viên</label>
+              </div>
+              <div class="input-field">
+                <input type="text" id="complaint-employee-name" placeholder="Nhập tên nhân viên" readonly>
+                <label>Tên nhân viên</label>
+              </div>
+              <div class="input-field">
+                <input type="text" id="complaint-time" readonly>
+                <label>Thời gian</label>
+              </div>
+              <div class="input-field">
+                <select id="complaint-reason">
+                  <option value="">-- Chọn lý do --</option>
+                  <option value="Máy chấm công nhận diện nhầm người">Máy chấm công nhận diện nhầm người</option>
+                  <option value="Máy chấm công không nhận diện">Máy chấm công không nhận diện</option>
+                  <option value="Camera không lên">Camera không lên</option>
+                  <option value="Thiết bị không phản hồi">Thiết bị không phản hồi</option>
+                  <option value="Chấm công không ghi nhận">Chấm công không ghi nhận</option>
+                  <option value="Lý do khác">Lý do khác</option>
+                </select>
+                <label>Lý do</label>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" id="send-complaint" class="primary-button">Gửi khiếu nại</button>
+            <button type="button" id="cancel-complaint" class="cancel-button" data-bs-dismiss="modal">Hủy</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="/static/js/predict.js" type="module"></script>
+    <script src="/static/js/complaint.js" type="module"></script>
   </body>
 </html>

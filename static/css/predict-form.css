@@ -69,3 +69,123 @@ button:hover {
   color: #fff;
   background: rgba(255, 255, 255, 0.15);
 }
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease;
+}
+
+.modal-overlay.show {
+  opacity: 1;
+  visibility: visible;
+  display: flex;
+}
+
+/* Phong cách cho form trong modal thông báo chấm công */
+#fullscreenModal .wrapper {
+  background-color: rgba(20, 20, 20, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  max-width: 500px;
+  width: 100%;
+  border-radius: 15px;
+  padding: 30px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+#fullscreenModal h2 {
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 2.2rem;
+  text-align: center;
+  margin-bottom: 20px;
+  letter-spacing: 1px;
+  font-family: "Heading", sans-serif;
+}
+
+#fullscreenModal .input-field {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin: 12px 0;
+  font-size: 1.4rem;
+  color: white;
+}
+
+#fullscreenModal .input-field span:first-child {
+  font-weight: bold;
+  min-width: 120px;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+#fullscreenModal .input-field span:last-child {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  padding-bottom: 3px;
+  color: #ffffff;
+  flex-grow: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#fullscreenModal .input-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  margin: 12px 0;
+}
+
+#fullscreenModal .status {
+  padding: 3px 10px;
+  border-radius: 5px;
+  font-weight: bold;
+}
+
+#fullscreenModal button {
+  background-color: #0078d4;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  font-size: 1.4rem;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  margin-top: 15px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  display: block;
+  margin: 15px auto 0;
+  min-width: 180px;
+}
+
+#fullscreenModal button:hover {
+  background-color: #005fa7;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 5px;
+  margin-top: 20px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress {
+  height: 100%;
+  background-color: #0078d4;
+  transform-origin: left;
+  transform: scaleX(0);
+}

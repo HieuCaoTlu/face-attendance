@@ -2,8 +2,23 @@ export function showModal() {
   const modal = document.getElementById("fullscreenModal");
   const progress = document.querySelector(".progress");
 
-  modal.style.opacity = "1";
+  // Đảm bảo modal hiển thị đúng cách
+  modal.classList.add("show");
+  modal.style.display = "flex";
   modal.style.visibility = "visible";
+  modal.style.opacity = "1";
+
+  // Focus vào modal để đảm bảo người dùng thấy nó
+  setTimeout(() => {
+    modal.focus();
+    
+    // Kiểm tra xem modal có hiển thị không
+    if (window.getComputedStyle(modal).display !== "flex") {
+      console.log("Modal không hiển thị, thử lại...");
+      modal.style.display = "flex !important";
+      modal.style.opacity = "1 !important";
+    }
+  }, 100);
 
   // Đảm bảo progress bắt đầu từ 0
   progress.style.transition = "none";
@@ -20,6 +35,8 @@ export function showModal() {
     modal.addEventListener(
       "transitionend",
       function resetProgress() {
+        modal.classList.remove("show");
+        modal.style.display = "none";
         modal.style.visibility = "hidden";
 
         // Tắt transition trước khi reset progress về 0 để tránh chạy ngược

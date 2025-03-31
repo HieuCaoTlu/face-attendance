@@ -1,5 +1,5 @@
 from fastapi import FastAPI, APIRouter, Depends, File, UploadFile, Form, HTTPException, Path
-from database import session, Employee, get_date, Attendance, get_time, time_to_string, Shift
+from database import session, Employee, get_date, Attendance, get_time, time_to_string, Shift, Complaint, get_db
 from utils.speech import text_to_speech
 from typing import List, Optional
 from ai import train
@@ -10,6 +10,9 @@ from pydantic import BaseModel
 import json
 import os
 import shutil
+import base64
+from uuid import uuid4
+from sqlalchemy.orm import Session
 
 router = APIRouter()
 
@@ -31,27 +34,68 @@ class EmployeeResponse(BaseModel):
     message: Optional[str] = None
     employee_id: Optional[int] = None
 
-@router.post("/employee", response_model=EmployeeResponse)
-async def create_employee(name: str = Form(...), position: str = Form(...)):
+# Model cấu hình ca làm việc
+class ShiftConfigItem(BaseModel):
+    checkIn: str
+    checkOut: str
+
+class ShiftConfig(BaseModel):
+    shift1: ShiftConfigItem
+    shift2: ShiftConfigItem
+
+# Model cho Complaint API
+class ComplaintResponse(BaseModel):
+    success: bool
+    message: Optional[str] = None
+    complaint_id: Optional[int] = None
+
+@router.post("/employee")
+async def add_employee(
+    name: str = Form(...),
+    position: str = Form(...),
+    sess: Session = Depends(get_db)
+):
     try:
+        # Tạo và thêm nhân viên mới
         new_employee = Employee(name=name, position=position)
-        session.add(new_employee)
-        session.commit()
-        session.refresh(new_employee)
+        sess.add(new_employee)
+        sess.commit()
+        sess.refresh(new_employee)
         
-        return {"success": True, "employee_id": new_employee.id}
+        return {
+            "success": True,
+            "message": "Thêm nhân viên thành công",
+            "employee_id": new_employee.id,
+            "name": new_employee.name,
+            "position": new_employee.position
+        }
     except Exception as e:
-        session.rollback()
-        return {"success": False, "message": f"Lỗi khi tạo nhân viên: {str(e)}"}
+        sess.rollback()
+        return {
+            "success": False,
+            "message": f"Lỗi khi thêm nhân viên: {str(e)}"
+        }
 
 @router.post("/speech")
 async def speech(text: str = Form(...)):
     """Text to speech API"""
-    file_location = text_to_speech(text)
-    
-    return {
-        "audio_path": file_location
-    }
+    try:
+        audio_base64 = text_to_speech(text)
+        if not audio_base64:
+            return JSONResponse(
+                status_code=500,
+                content={"error": "Không thể tạo file âm thanh"}
+            )
+        
+        return {
+            "success": True,
+            "audio": audio_base64
+        }
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Lỗi: {str(e)}"}
+        )
 
 @router.post("/train")
 async def training(
@@ -227,17 +271,16 @@ async def get_employees():
 
 @router.get("/employees/{employee_id}")
 async def get_employee(employee_id: int):
-    """Lấy thông tin chi tiết của một nhân viên"""
+    """Lấy thông tin một nhân viên theo ID"""
     employee = session.query(Employee).filter(Employee.id == employee_id).first()
-    
     if not employee:
-        raise HTTPException(status_code=404, detail="Không tìm thấy nhân viên")
+        return {"success": False, "message": "Không tìm thấy nhân viên"}
     
     return {
+        "success": True,
         "id": employee.id,
         "name": employee.name,
-        "position": employee.position,
-        "created_at": employee.created_at.strftime("%d/%m/%Y %H:%M") if employee.created_at else None
+        "position": employee.position
     }
 
 @router.put("/employees/{employee_id}", response_model=EmployeeResponse)
@@ -270,6 +313,22 @@ async def delete_employee(employee_id: int = Path(...)):
         
         if not employee:
             return {"success": False, "message": f"Không tìm thấy nhân viên có ID {employee_id}"}
+        
+        # Xóa tất cả các bản ghi chấm công liên quan
+        attendance_records = session.query(Attendance).filter(Attendance.employee_id == employee_id).all()
+        for record in attendance_records:
+            session.delete(record)
+        
+        # Xóa tất cả khiếu nại liên quan
+        complaint_records = session.query(Complaint).filter(Complaint.employee_id == employee_id).all()
+        for record in complaint_records:
+            # Xóa file ảnh nếu tồn tại
+            if record.image_path and os.path.exists(record.image_path):
+                try:
+                    os.remove(record.image_path)
+                except Exception as e:
+                    print(f"Không thể xóa file ảnh: {e}")
+            session.delete(record)
         
         # Xóa nhân viên
         session.delete(employee)
@@ -328,21 +387,30 @@ async def create_attendance(employee_id: int = Form(...)):
         return {"success": False, "message": f"Lỗi khi chấm công: {str(e)}"}
 
 @router.get("/attendance", response_model=dict)
-async def get_attendance(date: Optional[str] = None, shift_id: Optional[int] = None):
+async def get_attendance(date: Optional[str] = None, shift_id: Optional[int] = None, from_date: Optional[str] = None, to_date: Optional[str] = None):
     try:
         query = session.query(
             Attendance, 
             Employee.name.label("employee_name"),
-            Shift.name.label("shift_name")
+            Shift.name.label("shift_name"),
+            Shift.check_in_time.label("expected_check_in"),
+            Shift.check_out_time.label("expected_check_out")
         ).join(
             Employee, Attendance.employee_id == Employee.id
         ).join(
             Shift, Attendance.shift_id == Shift.id
         )
         
-        # Lọc theo ngày nếu có
+        # Lọc theo ngày cụ thể nếu có
         if date:
             query = query.filter(Attendance.date == date)
+        
+        # Lọc theo khoảng ngày nếu có
+        if from_date:
+            query = query.filter(Attendance.date >= from_date)
+        
+        if to_date:
+            query = query.filter(Attendance.date <= to_date)
         
         # Lọc theo ca làm việc nếu có
         if shift_id:
@@ -351,18 +419,314 @@ async def get_attendance(date: Optional[str] = None, shift_id: Optional[int] = N
         results = query.all()
         
         attendance_list = []
-        for att, emp_name, shift_name in results:
+        for att, emp_name, shift_name, expected_check_in, expected_check_out in results:
             attendance_list.append({
                 "id": att.id,
                 "employee_id": att.employee_id,
                 "employee_name": emp_name,
-                "date": att.date,
+                "date": att.date.strftime("%Y-%m-%d") if att.date else None,
                 "shift_id": att.shift_id,
                 "shift_name": shift_name,
-                "check_in_time": att.check_in_time,
-                "check_out_time": att.check_out_time
+                "check_in_time": time_to_string(att.checkin) if hasattr(att, 'checkin') and att.checkin else None,
+                "check_out_time": time_to_string(att.checkout) if hasattr(att, 'checkout') and att.checkout else None,
+                "expected_check_in": time_to_string(expected_check_in) if expected_check_in else "08:00",
+                "expected_check_out": time_to_string(expected_check_out) if expected_check_out else "17:00",
+                "checkin_status": att.checkin_status if hasattr(att, 'checkin_status') else None,
+                "checkout_status": att.checkout_status if hasattr(att, 'checkout_status') else None
             })
         
+        print(f"Tìm thấy {len(attendance_list)} bản ghi chấm công")
         return {"success": True, "attendance": attendance_list}
     except Exception as e:
+        print(f"Lỗi khi lấy dữ liệu chấm công: {str(e)}")
         return {"success": False, "message": f"Lỗi khi lấy dữ liệu chấm công: {str(e)}", "attendance": []}
+
+@router.get("/shifts/config")
+async def get_shifts_config():
+    """Lấy cấu hình ca làm việc"""
+    try:
+        # Tìm kiếm cấu hình ca hiện tại trong cơ sở dữ liệu
+        shifts = session.query(Shift).order_by(Shift.check_in_time).all()
+        
+        # Nếu không có đủ 2 ca, trả về cấu hình mặc định
+        if len(shifts) < 2:
+            return {
+                "success": True,
+                "config": {
+                    "shift1": {
+                        "checkIn": "07:00",
+                        "checkOut": "12:00"
+                    },
+                    "shift2": {
+                        "checkIn": "13:00",
+                        "checkOut": "17:00"
+                    }
+                }
+            }
+        
+        # Lấy ra ca 1 và ca 2
+        shift1 = shifts[0]
+        shift2 = shifts[1]
+        
+        return {
+            "success": True,
+            "config": {
+                "shift1": {
+                    "checkIn": time_to_string(shift1.check_in_time),
+                    "checkOut": time_to_string(shift1.check_out_time)
+                },
+                "shift2": {
+                    "checkIn": time_to_string(shift2.check_in_time),
+                    "checkOut": time_to_string(shift2.check_out_time)
+                }
+            }
+        }
+    except Exception as e:
+        return {"success": False, "message": f"Lỗi: {str(e)}"}
+
+@router.post("/shifts/config")
+async def update_shifts_config(config: ShiftConfig):
+    """Cập nhật cấu hình ca làm việc"""
+    from utils.date import set_time
+    from rule import validate_shift_break, get_shifts
+    
+    try:
+        # Chuyển đổi chuỗi thời gian thành đối tượng time
+        shift1_check_in = set_time(config.shift1.checkIn)
+        shift1_check_out = set_time(config.shift1.checkOut)
+        shift2_check_in = set_time(config.shift2.checkIn)
+        shift2_check_out = set_time(config.shift2.checkOut)
+        
+        # Kiểm tra thời gian ca 1
+        if shift1_check_in >= shift1_check_out:
+            return {"success": False, "message": "Thời gian bắt đầu ca 1 phải trước thời gian kết thúc ca 1"}
+        
+        # Kiểm tra thời gian ca 2
+        if shift2_check_in >= shift2_check_out:
+            return {"success": False, "message": "Thời gian bắt đầu ca 2 phải trước thời gian kết thúc ca 2"}
+        
+        # Kiểm tra khoảng nghỉ giữa ca 1 và ca 2
+        shift1_end_minutes = shift1_check_out.hour * 60 + shift1_check_out.minute
+        shift2_start_minutes = shift2_check_in.hour * 60 + shift2_check_in.minute
+        
+        if (shift2_start_minutes - shift1_end_minutes) < 10:
+            return {"success": False, "message": "Thời gian giữa ca 1 và ca 2 phải cách nhau ít nhất 10 phút"}
+        
+        # Xóa tất cả ca hiện tại
+        session.query(Shift).delete()
+        
+        # Tạo ca 1
+        shift1 = Shift(
+            name="Ca 1",
+            check_in_time=shift1_check_in,
+            check_out_time=shift1_check_out,
+            active=True
+        )
+        session.add(shift1)
+        
+        # Tạo ca 2
+        shift2 = Shift(
+            name="Ca 2",
+            check_in_time=shift2_check_in,
+            check_out_time=shift2_check_out,
+            active=True
+        )
+        session.add(shift2)
+        
+        # Lưu thay đổi
+        session.commit()
+        
+        return {
+            "success": True,
+            "message": "Cập nhật cấu hình ca làm việc thành công"
+        }
+    except Exception as e:
+        session.rollback()
+        return {"success": False, "message": f"Lỗi: {str(e)}"}
+
+@router.post("/complaints", response_model=ComplaintResponse)
+async def create_complaint(
+    employee_id: int = Form(...),
+    reason: str = Form(...),
+    image_data: str = Form(...)
+):
+    """Tạo khiếu nại mới"""
+    try:
+        # Kiểm tra nhân viên có tồn tại không
+        employee = session.query(Employee).filter(Employee.id == employee_id).first()
+        if not employee:
+            return {"success": False, "message": "Không tìm thấy nhân viên"}
+            
+        # Lưu ảnh từ base64 string
+        image_data = image_data.split(',')[1] if ',' in image_data else image_data
+        image_bytes = base64.b64decode(image_data)
+        
+        # Tạo thư mục nếu chưa tồn tại
+        os.makedirs('static/uploads/complaints', exist_ok=True)
+        
+        # Tạo tên file duy nhất
+        image_filename = f"{uuid4()}.jpg"
+        image_path = f"static/uploads/complaints/{image_filename}"
+        
+        # Lưu ảnh
+        with open(image_path, "wb") as f:
+            f.write(image_bytes)
+        
+        # Tạo khiếu nại mới
+        new_complaint = Complaint(
+            employee_id=employee_id,
+            reason=reason,
+            image_path=image_path
+        )
+        
+        session.add(new_complaint)
+        session.commit()
+        session.refresh(new_complaint)
+        
+        return {"success": True, "complaint_id": new_complaint.id, "message": "Đã gửi khiếu nại thành công"}
+    except Exception as e:
+        session.rollback()
+        return {"success": False, "message": f"Lỗi khi tạo khiếu nại: {str(e)}"}
+
+@router.get("/complaints")
+async def get_complaints():
+    """Lấy danh sách tất cả khiếu nại"""
+    try:
+        complaints = session.query(Complaint).order_by(Complaint.complaint_time.desc()).all()
+        
+        result = []
+        for complaint in complaints:
+            employee = session.query(Employee).filter(Employee.id == complaint.employee_id).first()
+            
+            # Format ngày và giờ
+            complaint_date = complaint.complaint_time.strftime("%Y-%m-%d")
+            complaint_time = complaint.complaint_time.strftime("%H:%M:%S")
+            
+            result.append({
+                "id": complaint.id,
+                "employee_id": complaint.employee_id,
+                "employee_name": employee.name if employee else "Unknown",
+                "complaint_date": complaint_date,
+                "complaint_time": complaint_time,
+                "reason": complaint.reason,
+                "image_path": complaint.image_path,
+                "status": complaint.status,
+                "processed": complaint.processed
+            })
+        
+        return {
+            "success": True,
+            "complaints": result
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Lỗi khi lấy danh sách khiếu nại: {str(e)}"
+        }
+
+@router.get("/complaints/{complaint_id}")
+async def get_complaint_detail(complaint_id: int):
+    """Lấy chi tiết một khiếu nại"""
+    try:
+        complaint = session.query(Complaint).filter(Complaint.id == complaint_id).first()
+        
+        if not complaint:
+            return {
+                "success": False,
+                "message": "Không tìm thấy khiếu nại"
+            }
+        
+        employee = session.query(Employee).filter(Employee.id == complaint.employee_id).first()
+        
+        # Format ngày và giờ
+        complaint_date = complaint.complaint_time.strftime("%Y-%m-%d")
+        complaint_time = complaint.complaint_time.strftime("%H:%M:%S")
+        
+        return {
+            "success": True,
+            "complaint": {
+                "id": complaint.id,
+                "employee_id": complaint.employee_id,
+                "employee_name": employee.name if employee else "Unknown",
+                "complaint_date": complaint_date,
+                "complaint_time": complaint_time,
+                "reason": complaint.reason,
+                "image_path": complaint.image_path,
+                "status": complaint.status,
+                "processed": complaint.processed
+            }
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Lỗi khi lấy chi tiết khiếu nại: {str(e)}"
+        }
+
+@router.post("/complaints/{complaint_id}/process")
+async def process_complaint(
+    complaint_id: int = Path(...),
+    approved: bool = Form(...),
+    sess: Session = Depends(get_db)
+):
+    """API xử lý khiếu nại (duyệt hoặc từ chối)"""
+    try:
+        # Tìm khiếu nại trong DB
+        complaint = sess.query(Complaint).filter(Complaint.id == complaint_id).first()
+        if not complaint:
+            return {"success": False, "message": "Không tìm thấy khiếu nại"}
+        
+        # Cập nhật trạng thái xử lý
+        complaint.processed = True
+        complaint.approved = approved
+        complaint.status = "Đã duyệt" if approved else "Không duyệt"
+        processed_date = get_date()
+        processed_time = get_time()
+        
+        # Nếu duyệt khiếu nại, tạo bản ghi chấm công cho nhân viên
+        if approved:
+            # Lấy ngày từ complaint_time
+            complaint_date = complaint.complaint_time.strftime("%Y-%m-%d")
+            
+            # Kiểm tra xem đã có bản ghi chấm công cho nhân viên vào ngày này chưa
+            existing_attendance = sess.query(Attendance).filter(
+                Attendance.employee_id == complaint.employee_id,
+                Attendance.date == complaint_date
+            ).first()
+            
+            # Lấy giờ từ complaint_time
+            complaint_time_str = complaint.complaint_time.strftime("%H:%M:%S")
+            
+            if existing_attendance:
+                # Nếu đã có, cập nhật thông tin check-in
+                existing_attendance.checkin = complaint.complaint_time.time()
+            else:
+                # Nếu chưa có, tạo bản ghi mới
+                # Xác định ca làm việc dựa vào thời gian
+                from utils.date import set_time
+                from rule import get_appropriate_shift
+                
+                complaint_time_obj = complaint.complaint_time.time()
+                shift = get_appropriate_shift(complaint_time_obj)
+                
+                if not shift:
+                    # Nếu không có ca phù hợp, sử dụng ca mặc định (id=1)
+                    shift = sess.query(Shift).filter(Shift.id == 1).first()
+                
+                # Tạo bản ghi chấm công mới
+                new_attendance = Attendance(
+                    employee_id=complaint.employee_id,
+                    date=complaint_date,
+                    checkin=complaint_time_obj,
+                    checkout=None,  # Chưa có giờ check-out
+                    shift_id=shift.id if shift else 1
+                )
+                sess.add(new_attendance)
+        
+        # Lưu thay đổi vào DB
+        sess.commit()
+        
+        return {"success": True, "message": "Xử lý khiếu nại thành công"}
+        
+    except Exception as e:
+        sess.rollback()
+        return {"success": False, "message": f"Lỗi khi xử lý khiếu nại: {str(e)}"}

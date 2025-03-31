@@ -45,3 +45,156 @@ video {
 button {
   cursor: pointer;
 }
+
+/* Override một số style của Bootstrap để phù hợp với thiết kế */
+.modal-content {
+  background-color: rgba(20, 20, 20, 0.85);
+  backdrop-filter: blur(10px);
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  font-family: inherit;
+}
+
+.modal-title {
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 2.2rem;
+  text-align: center;
+  width: 100%;
+  letter-spacing: 1px;
+}
+
+.modal-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  justify-content: center;
+  position: relative;
+}
+
+.modal-header .btn-close {
+  position: absolute;
+  right: 15px;
+  filter: invert(1);
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  justify-content: center;
+}
+
+/* CSS cho form trong modal khiếu nại */
+.modal-body .input-field {
+  margin: 15px 0;
+}
+
+.modal-body .input-field input,
+.modal-body .input-field select {
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 5px;
+  color: white;
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 1.4rem;
+}
+
+.modal-body .input-field select option {
+  background-color: #333;
+  color: white;
+}
+
+.modal-body .input-field label {
+  color: #ffffff;
+  font-size: 1.4rem;
+  margin-bottom: 5px;
+  display: block;
+}
+
+/* CSS cho ảnh khiếu nại */
+.complaint-image-container {
+  margin-bottom: 20px;
+  text-align: center;
+  border-radius: 10px;
+  overflow: hidden;
+  max-height: 280px;
+}
+
+.complaint-image-container img {
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+/* CSS cho các nút trong modal */
+.modal .primary-button,
+.primary-button {
+  background-color: #0078d4;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  font-size: 1.4rem;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.modal .primary-button:hover,
+.primary-button:hover {
+  background-color: #005fa7;
+}
+
+.modal .secondary-button,
+.secondary-button {
+  background-color: #505050;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 5px;
+  font-size: 1.3rem;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  margin-top: 5px;
+  font-weight: 500;
+}
+
+.modal .secondary-button:hover,
+.secondary-button:hover {
+  background-color: #3a3a3a;
+}
+
+.modal .cancel-button,
+.cancel-button {
+  background-color: transparent;
+  color: #ddd;
+  border: 1px solid #ddd;
+  padding: 10px 20px;
+  border-radius: 5px;
+  font-size: 1.4rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-weight: 500;
+}
+
+.modal .cancel-button:hover,
+.cancel-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+/* Fix backdrop issue */
+.modal-backdrop {
+  opacity: 0.7 !important;
+}
+
+body:has(.modal-open) {
+  overflow: hidden;
+  padding-right: 0 !important;
+}

@@ -2,6 +2,9 @@ const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
 export async function playTextToSpeech(text) {
   try {
+    // Hiển thị thông báo đang xử lý
+    console.log("Đang chuyển đổi văn bản thành giọng nói...");
+    
     const formData = new FormData();
     formData.append("text", text);
 
@@ -11,22 +14,30 @@ export async function playTextToSpeech(text) {
     });
 
     const data = await response.json();
-    if (!data.audio) throw new Error("No audio data received");
-
-    const audioData = atob(data.audio);
-    const arrayBuffer = new Uint8Array(audioData.length);
-
-    for (let i = 0; i < audioData.length; i++) {
-      arrayBuffer[i] = audioData.charCodeAt(i);
+    if (!data.audio) {
+      console.error("Không nhận được dữ liệu audio");
+      return;
     }
 
-    audioContext.decodeAudioData(arrayBuffer.buffer, (buffer) => {
+    // Giải mã base64 thành ArrayBuffer
+    const binaryString = atob(data.audio);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    // Phát audio bằng Web Audio API
+    audioContext.decodeAudioData(bytes.buffer, (buffer) => {
       const source = audioContext.createBufferSource();
       source.buffer = buffer;
       source.connect(audioContext.destination);
       source.start(0);
+    }, (err) => {
+      console.error("Lỗi khi giải mã audio:", err);
     });
   } catch (error) {
-    console.error("Error playing TTS:", error);
+    console.error("Lỗi khi phát TTS:", error);
   }
 }
