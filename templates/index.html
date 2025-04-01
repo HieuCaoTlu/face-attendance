@@ -39,10 +39,12 @@
           Hướng dẫn
           <p>Cách tính chấm công trong ngày</p>
         </div>
-        <div class="button">
-          Khiếu nại
-          <p>Báo cáo sự cố chấm công</p>
-        </div>
+        <a href="/complaint">
+          <div class="button" id="complaint-button">
+            Khiếu nại
+            <p>Báo cáo sự cố chấm công</p>
+          </div>
+        </a>
       </section>
     </main>
 
@@ -84,14 +86,17 @@
             <span>Trạng thái:</span>
             <span id="checkin_status" class="status">...</span>
           </div>
-          <button id="submit-button" type="button">Nhấn để khiếu nại</button>
+          <a href="/complaint">
+            <button id="complaint-button" type="button">
+              Nhấn để khiếu nại
+            </button>
+          </a>
           <div class="progress-bar">
             <div class="progress"></div>
           </div>
         </form>
       </div>
     </div>
-
     <script src="/static/js/predict.js" type="module"></script>
   </body>
 </html>

@@ -1,0 +1,43 @@
+@import url("/static/css/fonts.css");
+
+#complaint-image {
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  margin-bottom: 10px;
+}
+
+.input-field {
+  position: relative;
+}
+
+.suggestions {
+  position: absolute;
+  top: 35px;
+  left: 0;
+  right: 0;
+  background-color: rgba(255, 255, 255, 0.7);
+  border: 1px solid #ccc;
+  max-height: 200px;
+  overflow-y: auto;
+  display: none;
+  z-index: 10;
+  color: black;
+  font-size: 3rem;
+}
+
+.suggestion-item {
+  padding: 10px;
+  cursor: pointer;
+  color: black;
+}
+
+option {
+  padding: 20px;
+  cursor: pointer;
+  color: black;
+  font-size: 2rem;
+}
+
+.suggestion-item:hover {
+  background-color: rgba(255, 255, 255, 0.9);
+}

@@ -9,10 +9,10 @@ headers = {
         "Expires": "0",
     }
 
-@stream_router.get("/predict")
+@stream_router.get("/predict", tags=["Camera"])
 async def stream_predict():
     return StreamingResponse(generate_predict_camera(), media_type="text/event-stream",  headers=headers)
 
-@stream_router.get("/train")
+@stream_router.get("/train", tags=["Camera"])
 async def stream_train(label: str = Query(..., description="Label for training")):
     return StreamingResponse(generate_train_camera(label), media_type="text/event-stream",  headers=headers)
