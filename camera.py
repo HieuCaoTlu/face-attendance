@@ -6,13 +6,13 @@ import base64
 import cv2
 import time
 import json
-import atexit
 
 APPLY_ATTENDANCE = 5
 APPLY_COOLDOWN = 3
 APPLY_TRAIN = 12
 STEP = 50
-SCALE = 4
+SCALE = 3
+QUALITY = 70
 
 video_capture = None
 latest_frame = None
@@ -32,7 +32,7 @@ def init_camera():
 
     # Khởi tạo camera nếu chưa có
     if video_capture is None or not video_capture.isOpened():
-        video_capture = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+        video_capture = cv2.VideoCapture(0)
         video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
         video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
         video_capture.set(cv2.CAP_PROP_FPS, 60)
@@ -57,22 +57,8 @@ def capture_frames():
         with frame_lock:
             latest_frame = frame
 
-def stop_camera_thread():
-    global thread_running, video_capture
-    thread_running = False
-    if camera_thread is not None:
-        camera_thread.join()
-
-    if video_capture is not None:
-        video_capture.release()
-        video_capture = None
-        print("Camera released successfully.")
-    print("Camera thread stopped.")
-
-atexit.register(stop_camera_thread)
-
 def generate_predict_camera():
-    global video_capture, APPLY_ATTENDANCE, APPLY_COOLDOWN, SCALE, latest_frame, thread_running
+    global video_capture, APPLY_ATTENDANCE, APPLY_COOLDOWN, SCALE, QUALITY, latest_frame, thread_running
     init_camera()
     attendance_successful = False
     prev_label, label_start_time = None, None
@@ -129,7 +115,7 @@ def generate_predict_camera():
             else:
                 prev_label, label_start_time = None, None
             
-            ret, buffer = cv2.imencode('.jpeg', image, [cv2.IMWRITE_JPEG_QUALITY, 60])
+            ret, buffer = cv2.imencode('.jpeg', image, [cv2.IMWRITE_JPEG_QUALITY, QUALITY])
             if not ret:
                 continue
             frame_binary = base64.b64encode(buffer).decode('utf-8')
@@ -147,7 +133,7 @@ def generate_predict_camera():
 
     except KeyboardInterrupt:
         print("\n[INFO] KeyboardInterrupt detected! Stopping camera...")
-        stop_camera_thread()
+        # stop_camera_thread()
         print("Success")
 
 def generate_train_camera(label):
@@ -190,9 +176,7 @@ def generate_train_camera(label):
 
                 if frame_count % STEP == 0:
                     cropped_face = raw_image[y1:y2, x1:x2]
-                    ret, face_buffer = cv2.imencode('.jpeg', cropped_face, [cv2.IMWRITE_JPEG_QUALITY, 60])
-                    if ret:
-                        saved_faces.append(face_buffer)
+                    saved_faces.append(cropped_face)
 
             cv2.putText(image, f"FPS: {fps:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)        
             
@@ -207,12 +191,13 @@ def generate_train_camera(label):
                     data["speech"] = "Đang xử lí"
                     notice = False
             else:
-                _, buffer = cv2.imencode('.jpg', image, [cv2.IMWRITE_JPEG_QUALITY, 60])
+                _, buffer = cv2.imencode('.jpg', image, [cv2.IMWRITE_JPEG_QUALITY, QUALITY])
             
             data['image'] = base64.b64encode(buffer).decode('utf-8')
             
             if curr_time - start_time >= APPLY_TRAIN:
                 data["message"] = "Success"
+                print(len(saved_faces))
                 train(saved_faces, label)
                 training = False
 
@@ -220,7 +205,7 @@ def generate_train_camera(label):
             frame_count += 1
     except KeyboardInterrupt:
         print("\n[INFO] KeyboardInterrupt detected! Stopping camera...")
-        stop_camera_thread()
+        # stop_camera_thread()
         print("Success")
 
     

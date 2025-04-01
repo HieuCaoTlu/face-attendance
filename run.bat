@@ -57,8 +57,13 @@ if not exist .env (
 )
 
 echo [3] Đang khởi tạo hệ thống
+if exist __pycache__ (
+    echo Đang xóa thư mục __pycache__...
+    rmdir /s /q __pycache__
+)
+
 if exist myenv (
-    powershell -NoExit -Command "& {myenv\Scripts\Activate; start-process -NoNewWindow uvicorn -ArgumentList 'main:app --workers 4';Start-Sleep -Seconds 3;start http://localhost:8000;}"
+    powershell -NoExit -Command "& {myenv\Scripts\Activate; Start-Process -NoNewWindow fastapi -ArgumentList 'dev main.py';Start-Sleep -Seconds 3;start http://localhost:8000;}"
 )
 
 pause
