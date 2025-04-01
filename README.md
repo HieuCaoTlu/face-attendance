@@ -1,151 +1,77 @@
-# Hệ Thống Chấm Công 🕒
+# 📌 Hệ Thống Chấm Công Bằng Khuôn Mặt
 
-Hệ thống chấm công sử dụng nhận diện khuôn mặt để ghi nhận thời gian làm việc của nhân viên. Dưới đây là mô tả chi tiết về yêu cầu, cài đặt và cấu trúc của dự án.
+## 0️⃣ Bối Cảnh
 
----
+- 🎯 Đối tượng nhắm tới: Các công ty văn phòng có ca làm việc cố định sáng chiều.
+- 🚫 Không hỗ trợ ca luân phiên cho thực tập sinh, cộng tác viên.
+- 🤖 Phương pháp chấm công ít tiếp xúc, tiện lợi và nhanh chóng.
 
-## 1. Yêu Cầu Lập Trình Viên 👨‍💻
+## 1️⃣ Giới Thiệu Chức Năng
 
-### 1️⃣ Lấy code mới nhất từ branch `dev`
-```sh
-git checkout dev
-git pull origin dev
+- 👤 **Tạo nhân viên và huấn luyện khuôn mặt** bằng video 12s:
+  - Giữ nguyên.
+  - Quay trái.
+  - Quay phải.
+  - Ngửa lên.
+- 📸 **Chấm công bằng khuôn mặt**:
+  - Xác minh khuôn mặt trong **3s**.
+  - Chỉ chấm công khi khuôn mặt gần camera.
+  - Hiển thị kết quả chấm công ngay lập tức.
+- 🏢 **Quản lý nhân sự và lịch sử chấm công**:
+  - Cài đặt danh sách ca làm việc.
+  - Quản lý danh sách nhân viên.
+  - Quản lý lịch sử chấm công.
+  - Xử lý danh sách khiếu nại.
+  - 📊 Biểu đồ thống kê chấm công.
+  - 📂 Xuất báo cáo chấm công.
+
+## 2️⃣ Giới Thiệu Các Mô Hình Chính
+
+- 🏷️ **Phát hiện khuôn mặt**: Sử dụng **Mediapipe Landmark** để nhận diện đặc trưng khuôn mặt.
+- 🔍 **Trích xuất đặc trưng**: Dùng **Facenet** để tạo Embedding cho khuôn mặt.
+- 🎯 **Phân loại khuôn mặt**: Sử dụng **SVC (Support Vector Classifier)** để nhận diện danh tính.
+
+## 3️⃣ Giới Thiệu Công Nghệ
+
+- ⚡ **FastAPI**: Dùng để xây dựng server RESTful, đảm bảo tốc độ và hiệu năng cao.
+- 🗄️ **SQLite (có mã hóa)**: Lưu trữ dữ liệu nhân viên và lịch sử chấm công an toàn.
+- 📷 **OpenCV (cv2)**: Hỗ trợ lấy hình ảnh từ camera và xử lý hình ảnh.
+
+## 2️⃣ Cách Cài Đặt
+
+### 🔰 Cho người sử dụng Windows:
+
+1. 📥 Nhấn nút màu xanh Code > Download Zip. Sau đó lấy giải nén file `.zip`
+2. Đi vào thư mục vừa giải nén
+3. 🖥️ Chạy `run.bat`.
+4. Nếu chưa có Python, `run.bat` sẽ hướng dẫn cài đặt
+5. Sau khi có Python, sử dụng `run.bat` để tự động kích hoạt hệ thống chấm công
+
+### 💻 Cho lập trình viên:
+
+```bash
+# Clone repository
+ git clone -b dev https://github.com/HieuCaoTlu/face-attendance.git
+ cd face-attendance
+
+# Tạo môi trường Python ảo (yêu cầu phiên bản 3.11)
+ py -m venv myenv
+ myenv/Scripts/activate
+
+# Cài đặt các thư viện cần thiết
+ pip install -r requirements.txt
+
+# Tạo file .env và điền như sau
+ DB_PASSWORD = '<Dãy số bất kì>'
+
+# Chạy server FastAPI
+ fastapi dev main.py
 ```
 
-### 2️⃣ Tạo nhánh mới từ `dev`
-```sh
-git checkout -b <tên-thành-viên>/<tên-tính-năng>
-```
+## 3️⃣ Hạn Chế
 
-### 3️⃣ Thực hiện thay đổi, commit với Conventional Commit
-```sh
-git add .
-git commit -s -m "feat: mô tả ngắn gọn tính năng"
-```
-_(Thay `feat:` bằng `fix:`, `chore:`,... tùy vào loại commit)_
+- ❌ **Không hỗ trợ quét mặt 3D**: Hệ thống có thể bị qua mặt bằng ảnh in.
+- ❌ **Thiếu hỗ trợ chấm công part-time**: Không phù hợp với công ty có ca luân phiên.
+- ❌ **Chưa có phần cứng chuyên biệt**: Cần máy tính để chạy thay vì máy chấm công nhỏ gọn.
 
-### 4️⃣ Push nhánh lên GitHub
-```sh
-git push origin <tên-thành-viên>/<tên-tính-năng>
-```
-
-### 5️⃣ Tạo Pull Request (PR) từ `<nhánh của bạn>` vào `dev`
-- Vào GitHub, chọn **New Pull Request**
-- Chọn **base: dev** ← **compare: <nhánh của bạn>**
-- Thêm mô tả, nhấn **Create Pull Request**
-
-### 6️⃣ Chờ review & merge PR
-- Nếu cần chỉnh sửa, commit lại và push
-- Khi PR được merge thành công, tiếp tục bước 7
-
-### 7️⃣ Chuyển về branch `dev` & cập nhật code mới nhất
-```sh
-git checkout dev
-git pull origin dev
-```
-
-### 8️⃣ Xóa branch cũ (sau khi merge thành công)
-- Xóa branch cục bộ:  
-  ```sh
-  git branch -d <tên-thành-viên>/<tên-tính-năng>
-  ```
-- Xóa branch trên GitHub (chưa cần):  
-  ```sh
-  git push origin --delete <tên-thành-viên>/<tên-tính-năng>
-  ```
-
-🎯 **Mẹo:** Nếu bạn làm việc với nhiều PR, có thể dùng `git fetch --prune` để dọn dẹp các branch đã bị xóa trên remote. 🚀
-
-
-### **Cách Cài Đặt và Khởi Động 🚀**
-
-1. **Yêu cầu tiên quyết:**
-
-   - Python 3.11 (~3.11.5)
-
-2. **Cài đặt môi trường ảo:**
-
-   ```bash
-   python -m venv myenv
-   python -3.11 -m venv #Trong trường hợp nhiều version
-   ```
-
-3. **Khởi động môi trường ảo:**
-
-   - **Windows:** `myenv/Scripts/activate`
-   - **macOS/Linux:** `source myenv/bin/activate`
-
-4. **Cài đặt các thư viện phụ thuộc:**
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-5. **Khởi động hệ thống:**
-   ```bash
-   fastapi dev main.py
-   ```
-
-### **Cách Commit Bằng Conventional Commit 📝**
-
-- **Viết commit bằng tiếng Việt, sử dụng các thẻ:**
-
-  - `feat:`: Thêm tính năng mới.
-  - `fix:`: Sửa lỗi.
-  - `refactor:`: Cải tiến mã nguồn.
-  - `docs:`: Cập nhật tài liệu.
-  - `style:`: Chỉnh sửa giao diện hoặc format mã nguồn mà không thay đổi logic.
-  - `perf:`: Cải tiến hiệu suất.
-
-- **Ví dụ về commit:**
-
-  ```bash
-  git commit -s -m "feat: thêm chức năng chấm công bằng khuôn mặt
-
-  - Giảm tải thời gian load khuôn mặt
-  - Chấm công sử dụng Facenet và SKC
-  "
-  ```
-
----
-
-## 2. Mô Tả Về Cấu Trúc Dự Án 📂
-
-### **Các Thư Mục và Tập Tin Chính**
-
-- **models/**: Chứa các mô hình học sâu đã được huấn luyện và quantized.
-
-  - `onnx_quantized`: Mô hình nhận diện khuôn mặt (Facenet) đã được huấn luyện và tối ưu hóa.
-  - `face_classifier_skm`: Mô hình phân loại khuôn mặt (SVM) dùng để xác định nhân viên.
-
-- **static/**: Chứa các tài nguyên tĩnh như CSS, fonts, images, JS, videos.
-
-  - **Lưu ý:** Khi thêm mới các tài nguyên (CSS, JS), cần tách chúng thành các file riêng biệt và không ghi đè vào file CSS cũ.
-
-- **templates/**: Chứa các tệp giao diện của hệ thống (HTML).
-
-  - **Lưu ý:** Không sử dụng CDN và cần tách biệt các tệp CSS, JS ra khỏi HTML để giữ sự tổ chức tốt.
-
-- **ai.py**: Xử lý tính năng AI:
-
-  - Phát hiện khuôn mặt.
-  - Dự đoán và huấn luyện mô hình nhận diện khuôn mặt.
-
-- **api.py**: Định nghĩa các API để tương tác với cơ sở dữ liệu (DB).
-
-- **camera.py**: Chứa các hàm xử lý stream camera cho các chức năng nhận diện khuôn mặt và huấn luyện mô hình.
-
-- **database.py**: Định nghĩa các bảng trong cơ sở dữ liệu SQLite (ví dụ: bảng nhân viên, bảng chấm công).
-
-- **stream.py**: Định nghĩa API để stream video từ camera lên giao diện web.
-
-- **main.py**: Đăng ký các API và giao diện người dùng lên ứng dụng FastAPI.
-
----
-
-## 3. Các Tính Năng Chính ⚙️
-
-- **Chấm Công**: Hệ thống sử dụng nhận diện khuôn mặt để ghi nhận thời gian vào/ra của nhân viên.
-- **Huấn Luyện Mô Hình**: Hệ thống cho phép huấn luyện lại mô hình nhận diện khuôn mặt khi có thêm dữ liệu mới.
-- **Stream Camera**: Camera sẽ stream trực tiếp đến giao diện người dùng để nhận diện khuôn mặt.
-- **API Quản Lý Dữ Liệu**: API để thêm, sửa và xóa thông tin nhân viên trong cơ sở dữ liệu.
+🚀 **Dự án đang tiếp tục phát triển để khắc phục các hạn chế trên!**

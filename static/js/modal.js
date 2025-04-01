@@ -35,7 +35,7 @@ export function showModal() {
       },
       { once: true }
     );
-  }, 5000);
+  }, 3000);
 }
 
 export function updateAttendanceInfo(attendance) {

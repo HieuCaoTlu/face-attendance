@@ -4,7 +4,8 @@ import joblib
 import numpy as np
 import mediapipe as mp
 import onnxruntime as ort
-from sklearn.svm import SVC
+from tools import augmentate
+from sklearn.svm import LinearSVC
 from database import session, Embedding
 
 model_dir = os.path.join(os.path.dirname(__file__), 'models')
@@ -30,14 +31,18 @@ def load_model():
     #Kiểm tra File SVC
     if not os.path.exists(cls_path):
         print("File SVC chưa tồn tại, đang tái tạo...")
-        cls_model = SVC(kernel='linear', probability=True)
-        joblib.dump(cls_model, cls_path)
-    cls_model = joblib.load(cls_path)
-    print("Model SVC sẵn sàng")
-
+        cls_model = None
+    else:
+        cls_model = joblib.load(cls_path)
+        print("Model SVC sẵn sàng")
     return rec_model, cls_model
 
 rec_model, cls_model = load_model()
+cls_ready = True
+if cls_model == None:
+    cls_ready = False
+print(cls_ready)
+
 
 def detect_face(image):
     """
@@ -49,18 +54,28 @@ def detect_face(image):
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     results = face_mesh.process(image_rgb)
     if results.multi_face_landmarks and len(results.multi_face_landmarks) > 0:
-        # Khi phát hiện được mặt, lấy tọa độ, chuẩn hóa tọa độ
         face_landmarks = results.multi_face_landmarks[0].landmark
-        img_h, img_w, _ = image.shape
-        x_coords = [int(landmark.x * img_w) for landmark in face_landmarks]
-        y_coords = [int(landmark.y * img_h) for landmark in face_landmarks]
+        
+        # Lấy các điểm landmark của mắt trái và mắt phải
+        left_eye = [face_landmarks[i] for i in range(33, 133)]  # Landmark của mắt trái (index có thể thay đổi)
+        right_eye = [face_landmarks[i] for i in range(362, 463)]  # Landmark của mắt phải (index có thể thay đổi)
+        
+        # Kiểm tra xem cả hai mắt có được phát hiện không
+        if left_eye and right_eye:
+            img_h, img_w, _ = image.shape
+            # Tính các điểm bounding box
+            x_coords = [int(landmark.x * img_w) for landmark in face_landmarks]
+            y_coords = [int(landmark.y * img_h) for landmark in face_landmarks]
+            x1, x2 = min(x_coords), max(x_coords)
+            y1, y2 = min(y_coords), max(y_coords)
+            bbox_width, bbox_height = x2 - x1, y2 - y1
+            if min(bbox_width, bbox_height) < 50:
+                return None, None
+            
+            bbox = np.array([(x1, y1), (x2, y1), (x2, y2), (x1, y2)], dtype=np.int32)
+            x1, y1, x2, y2 = max(0, x1), max(0, y1), min(img_w, x2), min(img_h, y2)
+            return image[y1:y2, x1:x2], bbox
 
-        # Xác định giới hạn bounding box
-        x1, x2 = min(x_coords), max(x_coords)
-        y1, y2 = min(y_coords), max(y_coords)
-        bbox = np.array([(x1, y1), (x2, y1), (x2, y2), (x1, y2)], dtype=np.int32)
-        x1, y1, x2, y2 = max(0, x1), max(0, y1), min(img_w, x2), min(img_h, y2)
-        return image[y1:y2, x1:x2], bbox
     return None, None
 
 def train(saved_face, employee_id):
@@ -69,52 +84,63 @@ def train(saved_face, employee_id):
     - Tham số: danh sách ảnh và mã nhân viên
     - Kết quả: trả về huấn luyện thành công
     """
-    global cls_model, cls_path, rec_model
-    images = []
-    for buffer in saved_face:
-        image_array = np.frombuffer(buffer, np.uint8)
-        image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
-        images.append(image)
+    global cls_model, cls_path, rec_model, cls_ready
+    cls_ready = True
+    images = saved_face
         
     session.query(Embedding).filter_by(employee_id=employee_id).delete()
     session.commit()
     embeddings, labels = [], []
+
     # 🔹 Load tất cả embeddings cũ từ database trước khi train
     data = session.query(Embedding).all()
     for item in data:
         embeddings.append(np.frombuffer(item.embedding, dtype=np.float32).tolist())
         labels.append(item.employee_id)
-
+    
+    previous_labels = len(labels)
     # 🔹 Thêm embeddings mới vào
+    count = 0
+    instances = []
     for image in images:
-        face, bbox = detect_face(image)
-        if face is None: continue
-        img = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
-        img = cv2.resize(img, (160, 160))
-        img = img.astype('float32') / 255.0
-        img = np.transpose(img, (2, 0, 1))
-        img = np.expand_dims(img, axis=0)
-        output = rec_model.run(None, {rec_model.get_inputs()[0].name: img})
-        embedding = output[0][0].tobytes()
+        face = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        face = cv2.resize(face, (160, 160))
+        augmented_faces = augmentate(face)
+        all_images = [face] + augmented_faces
 
-        # Lưu vào database
-        instance = Embedding(embedding=embedding, employee_id=employee_id)
-        session.add(instance)
-        session.commit()
+        for img in all_images:
+            count += 1
+            img = img.astype('float32') / 255.0
+            img = np.transpose(img, (2, 0, 1))
+            img = np.expand_dims(img, axis=0)
+            output = rec_model.run(None, {rec_model.get_inputs()[0].name: img})
+            embedding = output[0][0].tobytes()
 
-        embeddings.append(np.frombuffer(embedding, dtype=np.float32).tolist())
-        labels.append(employee_id)
+            instance = Embedding(embedding=embedding, employee_id=employee_id)
+            instances.append(instance)
 
-    if len(set(labels)) == 1:
+            embeddings.append(np.frombuffer(embedding, dtype=np.float32).tolist())
+            labels.append(employee_id)
+    
+    session.add_all(instances)
+    session.commit()
+    print('Số lượng ảnh: ',count)
+    if previous_labels == 0:
         print("Chỉ có một nhãn duy nhất, thêm embedding giả...")
         dummy_embedding = np.random.rand(len(embeddings[0])).tolist()
         embeddings.append(dummy_embedding)
         labels.append("unknown")
-
-    cls_model = SVC(kernel='linear', probability=True)
+    cls_model = LinearSVC(random_state=42)
     cls_model.fit(embeddings, labels)
     joblib.dump(cls_model, cls_path)
+    del images, embeddings, labels
     return {'status': 'Thành công', 'classes': cls_model.classes_.tolist()}
+
+def softmax(x, threshold=0.5, labels=None):
+    probabilities = np.exp(x - np.max(x)) / np.sum(np.exp(x - np.max(x)))
+    result = [labels[i] for i, prob in enumerate(probabilities) if prob > threshold]
+    if result and result != "unknown": return max(result)
+    else: return ""
 
 def predict(face, threshold=0.8):
     """
@@ -122,7 +148,8 @@ def predict(face, threshold=0.8):
     - Đầu vào: ảnh khuôn mặt đã cắt
     - Trả về: employee_id đáp ứng ngưỡng
     """
-    global cls_model, rec_model
+    global cls_model, rec_model, cls_ready
+    if not cls_ready: return ''
 
     # Tiền xử lí ảnh cho mô hình Facenet
     img = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
@@ -131,9 +158,8 @@ def predict(face, threshold=0.8):
     img = np.transpose(img, (2, 0, 1))
     img = np.expand_dims(img, axis=0)
     outputs = rec_model.run(None, {rec_model.get_inputs()[0].name: img})
-
+    x = cls_model.decision_function(np.array(outputs).reshape(1, -1))
     # Dự đoán bằng SVC, tính xác suất, kiểm tra ngưỡng rồi dự đoán
-    predicted_probs = cls_model.predict_proba(outputs[0])
-    confidence, predicted_index = np.max(predicted_probs), np.argmax(predicted_probs, axis=1)[0]
-    predicted_label = cls_model.classes_[predicted_index]
-    return predicted_label if confidence >= threshold and predicted_label.lower() != "unknown" else ""
+    predicted_label = softmax(x, threshold=threshold, labels=cls_model.classes_)
+    del outputs, img
+    return predicted_label

@@ -18,4 +18,3 @@ async def index(request: Request):
 @app.get("/train", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse("train.html", {"request": request})
-

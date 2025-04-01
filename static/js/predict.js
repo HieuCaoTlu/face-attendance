@@ -14,6 +14,11 @@ window.addEventListener("beforeunload", () => {
   clearCanvas();
 });
 
+eventSource.onerror = () => {
+  console.warn("Lỗi kết nối, đóng event source...");
+  eventSource.close();
+};
+
 eventSource.onmessage = async function (event) {
   try {
     const data = JSON.parse(event.data);
@@ -33,6 +38,6 @@ eventSource.onmessage = async function (event) {
       setTimeout(() => showModal(), 50);
     }
   } catch (error) {
-    console.error("Lỗi xử lý dữ liệu:", error);
+    eventSource.close();
   }
 };
