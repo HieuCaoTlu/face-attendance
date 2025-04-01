@@ -208,4 +208,19 @@ def generate_train_camera(label):
         # stop_camera_thread()
         print("Success")
 
+def generate_complaint_camera():
+    global video_capture, QUALITY, latest_frame, thread_running
+    init_camera()
+    try:
+        while latest_frame is None:
+            time.sleep(0.1) 
+        image = latest_frame.copy()
+        image = cv2.resize(latest_frame, (300, 200))
+        _, buffer = cv2.imencode('.jpeg', image)
+        frame_binary = base64.b64encode(buffer).decode('utf-8')
+        return frame_binary
+    except KeyboardInterrupt:
+        print("\n[INFO] KeyboardInterrupt detected! Stopping camera...")
+        # stop_camera_thread()
+        print("Success")
     

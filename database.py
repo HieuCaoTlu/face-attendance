@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, LargeBinary, Time, Date, event, text
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, LargeBinary, Time, Date, Boolean, event, text
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from dotenv import load_dotenv
 from utils.date import *
@@ -26,7 +26,8 @@ class Employee(BaseModel):
     name = Column(String, nullable=False)
     position = Column(String, nullable=False)
     attendances = relationship('Attendance', back_populates='employee', lazy=True)
-
+    complaints = relationship('Complaint', back_populates='employee', lazy=True)
+    
 # 🔹 Bảng Attendance (Chấm công)
 class Attendance(BaseModel):
     __tablename__ = 'attendance'
@@ -39,6 +40,17 @@ class Attendance(BaseModel):
     checkin_status = Column(String, default=True)
     checkout_status = Column(String, default=False)
     employee = relationship('Employee', back_populates='attendances')
+
+# 🔹 Bảng Complaint (Khiếu nại)
+class Complaint(BaseModel):
+    __tablename__ = 'complaints'
+    
+    id = Column(Integer, primary_key=True)
+    employee_id = Column(Integer, ForeignKey('employees.id'), nullable=False)
+    reason = Column(String, nullable=False)
+    processed = Column(Boolean, default=False)
+    image = Column(LargeBinary, nullable=False)
+    employee = relationship('Employee', back_populates='complaints')
 
 # 🔹 Định nghĩa Model
 class Embedding(Base):
