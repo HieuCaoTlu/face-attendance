@@ -69,7 +69,7 @@ def detect_face(image):
             x1, x2 = min(x_coords), max(x_coords)
             y1, y2 = min(y_coords), max(y_coords)
             bbox_width, bbox_height = x2 - x1, y2 - y1
-            if min(bbox_width, bbox_height) < 50:
+            if min(bbox_width, bbox_height) < 60:
                 return None, None
             
             bbox = np.array([(x1, y1), (x2, y1), (x2, y2), (x1, y2)], dtype=np.int32)
@@ -98,7 +98,6 @@ def train(saved_face, employee_id):
         embeddings.append(np.frombuffer(item.embedding, dtype=np.float32).tolist())
         labels.append(item.employee_id)
     
-    previous_labels = len(labels)
     # 🔹 Thêm embeddings mới vào
     count = 0
     instances = []
@@ -125,24 +124,28 @@ def train(saved_face, employee_id):
     session.add_all(instances)
     session.commit()
     print('Số lượng ảnh: ',count)
-    if previous_labels == 0:
-        print("Chỉ có một nhãn duy nhất, thêm embedding giả...")
+    previous_labels = len(set(labels))
+    if previous_labels < 2:
         dummy_embedding = np.random.rand(len(embeddings[0])).tolist()
         embeddings.append(dummy_embedding)
         labels.append("unknown")
+    if previous_labels < 3:
+        dummy_embedding2 = np.random.rand(len(embeddings[0])).tolist()
+        embeddings.append(dummy_embedding2)
+        labels.append("unknown2")
     cls_model = LinearSVC(random_state=42)
     cls_model.fit(embeddings, labels)
     joblib.dump(cls_model, cls_path)
     del images, embeddings, labels
     return {'status': 'Thành công', 'classes': cls_model.classes_.tolist()}
 
-def softmax(x, threshold=0.5, labels=None):
+def softmax(x, threshold, labels=None):
     probabilities = np.exp(x - np.max(x)) / np.sum(np.exp(x - np.max(x)))
-    result = [labels[i] for i, prob in enumerate(probabilities) if prob > threshold]
-    if result and result != "unknown": return max(result)
+    result = [labels[i] for i, prob in enumerate(probabilities[0]) if prob > threshold]
+    if result and result != "unknown" and result != "unknown2" : return max(result)
     else: return ""
 
-def predict(face, threshold=0.8):
+def predict(face, threshold=0.7):
     """
     Dự đoán danh tính khuôn mặt từ ảnh.
     - Đầu vào: ảnh khuôn mặt đã cắt
