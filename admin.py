@@ -1,40 +1,8 @@
-from fastapi import FastAPI, Request, Response
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
+from fastapi import APIRouter, Request, Response, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from starlette.middleware.sessions import SessionMiddleware
-from stream import stream_router
-from api import router
-from admin import admin_router
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi import status
 
-app = FastAPI(debug=True)
-app.add_middleware(SessionMiddleware, secret_key="face_attendance_secret_key", session_cookie="admin_session", max_age=1, same_site="strict")
-app.mount("/static", StaticFiles(directory="static"), name="static")
-app.include_router(router, prefix="/api")
-app.include_router(stream_router, prefix="/stream")
-# app.include_router(admin_router)
-templates = Jinja2Templates(directory="templates")
-
-@app.get("/", response_class=HTMLResponse, tags=["Interface"])
-async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
-
-@app.get("/complaint", response_class=HTMLResponse, tags=["Interface"])
-async def index(request: Request):
-    return templates.TemplateResponse("complaint.html", {"request": request})
-
-@app.get("/train", response_class=HTMLResponse, tags=["Interface"])
-async def index(request: Request):
-    return templates.TemplateResponse("train.html", {"request": request})
-
-@app.get("/admin", response_class=HTMLResponse, tags=["Interface"])
-async def admin(request: Request):
-    is_authenticated = request.session.get("admin_authenticated", False)
-    if not is_authenticated:
-        return templates.TemplateResponse("login.html", {"request": request})
-    return templates.TemplateResponse("admin.html", {"request": request})
+# Tạo router để quản lý các route liên quan đến admin
+admin_router = APIRouter()
 
 
 # Hàm xác thực admin
@@ -51,7 +19,7 @@ async def get_admin_auth(request: Request):
     # Nếu đã đăng nhập, trả về True
     return True
 
-@app.get("/admin", response_class=HTMLResponse)
+@admin_router.get("/admin", response_class=HTMLResponse)
 async def admin_page(request: Request, response: Response):
     # Luôn kiểm tra xác thực
     is_authenticated = request.session.get("admin_authenticated", False)
@@ -63,7 +31,7 @@ async def admin_page(request: Request, response: Response):
     # Nếu đã xác thực, trả về trang admin
     return templates.TemplateResponse("admin.html", {"request": request})
 
-@app.post("/login")
+@admin_router.post("/login")
 async def login(request: Request, response: Response):
     form_data = await request.form()
     username = form_data.get("username")
@@ -82,7 +50,7 @@ async def login(request: Request, response: Response):
             {"request": request, "error": "Tài khoản hoặc mật khẩu không đúng!"}
         )
 
-@app.get("/logout")
+@admin_router.get("/logout")
 async def logout(request: Request, response: Response):
     # Xóa trạng thái xác thực khỏi session
     request.session.pop("admin_authenticated", None)

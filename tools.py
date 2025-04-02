@@ -12,10 +12,10 @@ def add_attendance(id, shift):
     session.refresh(new_attendance)
     return new_attendance
 
-def checkin(id):
+def checkin(id, time=None):
     employee = session.query(Employee).filter_by(id=id).first()
     if not employee: return
-    current_time = get_time()
+    current_time = get_time() if not time else time
     current_shift = None
     current_date = get_date()
     shifts = session.query(Shift).all()

@@ -19,7 +19,7 @@ function formatDate(dateString) {
 async function getComplaint() {
   try {
     const [imageRes, employeeRes, dateRes] = await Promise.all([
-      fetch("/api/complaint"),
+      fetch("/api/complaint_image"),
       fetch("/api/employee"),
       fetch("/api/date"),
     ]);
