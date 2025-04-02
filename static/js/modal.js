@@ -48,9 +48,9 @@ export function updateAttendanceInfo(attendance) {
     const attendanceDateEl = document.getElementById("attendance_date");
     const attendanceCheckinEl = document.getElementById("attendance_checkin");
     const attendanceCheckoutEl = document.getElementById("attendance_checkout");
-    const attendanceMessageEl = document.getElementById("attendance_message");
     const messageElement = document.getElementById("message");
     const checkinStatusElement = document.getElementById("checkin_status");
+    const statusFieldElement = document.getElementById("status-field");
 
     if (employeeIdEl)
       employeeIdEl.textContent = attendance.employee_id || "N/A";
@@ -63,30 +63,23 @@ export function updateAttendanceInfo(attendance) {
     if (attendanceCheckoutEl)
       attendanceCheckoutEl.textContent =
         attendance.attendance_checkout || "N/A";
-    if (attendanceMessageEl)
-      attendanceMessageEl.textContent = attendance.attendance_message || "N/A";
 
     // Đổi tiêu đề thành Checkin/Checkout thành công
     if (messageElement) {
       messageElement.textContent =
-        attendance.attendance_message === "checkin"
+        attendance.message === "checkin"
           ? "Checkin thành công"
-          : attendance.attendance_message === "checkout"
+          : attendance.message === "checkout"
           ? "Checkout thành công"
           : "Thành công";
     }
 
     // Cập nhật trạng thái đi sớm/đi muộn
-    if (checkinStatusElement) {
-      if (attendance.checkin_status) {
-        checkinStatusElement.textContent = attendance.checkin_status;
-        checkinStatusElement.style.backgroundColor = attendance.checkin_flag
-          ? "lightcoral" // Đi muộn (màu đỏ nhạt)
-          : "lightgreen"; // Đi sớm (màu xanh nhạt)
-      } else {
-        checkinStatusElement.textContent = "N/A";
-        checkinStatusElement.style.backgroundColor = "transparent";
-      }
+    if (attendance.message == "checkin") {
+      statusFieldElement.style.opacity = 1;
+      checkinStatusElement.textContent = attendance.checkin_status;
+    } else {
+      statusFieldElement.style.opacity = 0;
     }
   });
 }

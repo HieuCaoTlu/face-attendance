@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Form, UploadFile, File
-from database import session, Employee, Complaint
+from database import session, Employee, Complaint, Shift, Attendance
 from camera import generate_complaint_camera, stop_camera, train_via_video
 from utils.speech import text_to_speech
-from utils.date import get_accruate
+from utils.date import get_accruate, set_time
+from tools import checkin
 import uuid
 import sys
 import os
@@ -80,3 +81,32 @@ async def train_video(video: UploadFile = File(...), name: str = Form(...),posit
     if result:
         return True
     return False
+
+@router.post("/shift", tags=["Shift"])
+async def add_shift(
+    name: str = Form(...),
+    checkin: str = Form(...),
+    checkout: str = Form(...)):
+    new_shift = Shift(name=name, checkin=set_time(checkin), checkout=set_time(checkout))
+    session.add(new_shift)
+    session.commit()
+    session.refresh(new_shift)
+    return {"name":new_shift.name, "checkin":new_shift.checkin, "checkout":new_shift.checkout}
+
+@router.post("/checkin", tags=["Utils"])
+async def checkin_temp(id: str = Form(...)):
+    result = checkin(id)
+    return result
+
+@router.delete("/checkin", tags=["Utils"])
+async def delete_checkin():
+    session.query(Attendance).delete()
+    session.commit()
+    return session.query(Attendance).all()
+
+@router.delete("/shift", tags=["Shift"])
+async def delete_shift():
+    session.query(Shift).delete()
+    session.commit()
+    return session.query(Shift).all()
+
