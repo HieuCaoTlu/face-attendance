@@ -20,3 +20,6 @@ def time_to_string(time_obj):
 
 def date_to_string(date_obj):
     return date_obj.strftime("%d-%m-%Y")
+
+def time_to_minutes(t):
+    return (t.hour * 3600 + t.minute * 60 + t.second) / 60

@@ -35,10 +35,9 @@ class Attendance(BaseModel):
     id = Column(Integer, primary_key=True)
     employee_id = Column(Integer, ForeignKey('employees.id'), nullable=False)
     date = Column(Date, default=get_date)
+    shift = Column(String, nullable=False)
     checkin = Column(Time, default=get_time)
     checkout = Column(Time, nullable=True)
-    checkin_status = Column(String, default=True)
-    checkout_status = Column(String, default=False)
     employee = relationship('Employee', back_populates='attendances')
 
 # 🔹 Bảng Complaint (Khiếu nại)
@@ -60,6 +59,13 @@ class Embedding(Base):
     employee_id = Column(String, nullable=False) 
     embedding = Column(LargeBinary, nullable=False)
 
+class Shift(Base):
+    __tablename__ = 'shifts'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    checkin = Column(Time, default=set_time("07:00"))
+    checkout = Column(Time, default=set_time("12:00"))
 
 psw = os.getenv('DB_PASSWORD')
 engine = create_engine(f"sqlite+pysqlcipher://:{psw}@/database.db")
