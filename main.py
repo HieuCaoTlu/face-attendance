@@ -11,10 +11,14 @@ app.include_router(router, prefix="/api")
 app.include_router(stream_router, prefix="/stream")
 templates = Jinja2Templates(directory="templates")
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse, tags=["Interface"])
 async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-@app.get("/train", response_class=HTMLResponse)
+@app.get("/complaint", response_class=HTMLResponse, tags=["Interface"])
+async def index(request: Request):
+    return templates.TemplateResponse("complaint.html", {"request": request})
+
+@app.get("/train", response_class=HTMLResponse, tags=["Interface"])
 async def index(request: Request):
     return templates.TemplateResponse("train.html", {"request": request})

@@ -9,12 +9,8 @@ import os
 
 router = APIRouter()
 
-@router.post("/employee")
-async def add_employee(
-    name: str = Form(...),
-    position: str = Form(...),
-):
-    
+@router.post("/employee", tags=["Employee"])
+async def add_employee(name: str = Form(...),position: str = Form(...)):
     # Thêm nhân viên vào DB
     new_employee = Employee(name=name, position=position)
     session.add(new_employee)
@@ -24,9 +20,7 @@ async def add_employee(
     # Gọi hàm train AI
     employee_id = new_employee.id
 
-    return {
-        "employee_id": employee_id,
-    }
+    return {"employee_id": employee_id,}
 
 @router.post("/speech", tags=["Utils"])
 async def speech(text: str = Form(...)):

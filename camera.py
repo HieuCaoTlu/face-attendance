@@ -260,4 +260,3 @@ def train_via_video(video_path, label):
     if saved_faces:
         train(saved_faces, label)
         return True
-    

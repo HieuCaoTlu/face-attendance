@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon" />
+    <link rel="stylesheet" href="/static/css/index.css" />
+    <link rel="stylesheet" href="/static/css/body.css" />
+    <link rel="stylesheet" href="/static/css/train-form.css" />
+    <link rel="stylesheet" href="/static/css/complaint.css" />
+    <title>Hệ thống chấm công TLU</title>
+  </head>
+  <body>
+    <video autoplay muted loop plays-inline>
+      <source src="/static/videos/bg.mp4" type="video/mp4" />
+    </video>
+
+    <header>
+    </header>
+
+    <main>
+      <section class="left-section">
+        <h1>Tạo khiếu nại</h1>
+        <p id="description">Điền thông tin khiếu nại</p>
+      </section>
+
+      <div class="wrapper">
+        <form action="">
+          <h2>Điền thông tin</h2>
+          <img id="complaint-image" src="" alt="" />
+          <div class="input-field">
+            <input class="date-input" type="text" required disabled />
+          </div>
+          <div class="input-field">
+            <input
+              type="text"
+              required
+              name="name"
+              id="employee-name"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+            />
+            <label for="employee-name">Nhập tên hoặc mã nhân viên</label>
+            <div id="employee-suggestions" class="suggestions"></div>
+          </div>
+          <div class="input-field">
+            <select name="" id="complaint-reason" class="wrap-input">
+              <option class="suggestion-item" value="">-- Chọn lý do --</option>
+              <option value="Máy chấm công nhận diện nhầm người">
+                Máy chấm công nhận diện nhầm người
+              </option>
+              <option value="Máy chấm công không nhận diện">
+                Máy chấm công không nhận diện
+              </option>
+              <option value="Camera không lên">Camera không lên</option>
+              <option value="Thiết bị không phản hồi">
+                Thiết bị không phản hồi
+              </option>
+              <option value="Chấm công không ghi nhận">
+                Chấm công không ghi nhận
+              </option>
+              <option value="Lý do khác">Lý do khác</option>
+            </select>
+          </div>
+          <button id="submit-complaint" type="submit">Gửi khiếu nại</button>
+        </form>
+      </div>
+
+      <section class="right-section">
+        <a href="/">
+          <div class="button">
+            Chấm công
+            <p>Quay về mục chấm công</p>
+          </div>
+        </a>
+      </section>
+    </main>
+
+    <footer>
+      <h3>Luccihank x HieuCaoTlu</h3>
+    </footer>
+    <script src="/static/js/complaint.js" type="module"></script>
+  </body>
+</html>
