@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon" />
+    <link rel="stylesheet" href="/static/css/index.css" />
+    <link rel="stylesheet" href="/static/css/body.css" />
+    <link rel="stylesheet" href="/static/css/train-form.css" />
+    <link rel="stylesheet" href="/static/css/admin.css" />
+    <title>Quản trị - Hệ thống chấm công TLU</title>
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <!-- SheetJS (xlsx) for Excel export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Chart.js for reports -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <!-- Thêm các plugin cần thiết cho xuất Excel -->
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/file-saver/dist/FileSaver.min.js"></script>
+    <!-- Thêm thư viện Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  </head>
+  <body>
+    <video autoplay muted loop plays-inline>
+      <source src="/static/videos/bg.mp4" type="video/mp4" />
+    </video>
+
+    <header>
+      <div class="header-content">
+        <div class="header-left">
+          <h1>QUẢN LÝ HỆ THỐNG CHẤM CÔNG</h1>
+          <p class="description">Chào mừng, Quản trị viên</p>
+        </div>
+        <div class="header-right">
+          <a href="/train" class="square-button add-button" title="Thêm nhân viên mới">+</a>
+          <a href="/logout" class="square-button power-button" title="Đăng xuất">
+            <img src="/static/images/power-button.png" alt="Đăng xuất" title="Đăng xuất">
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div class="admin-content">
+        <div class="admin-tabs">
+          <div class="tab active" data-tab="employees">Danh sách nhân viên</div>
+          <div class="tab" data-tab="attendance">Quản lý chấm công</div>
+          <div class="tab" data-tab="complaints">Xử lý khiếu nại</div>
+          <div class="tab" data-tab="statistics">Biểu đồ thống kê</div>
+          <div class="tab" data-tab="shifts">Cài đặt ca làm</div>
+        </div>
+
+        <div class="tab-content">
+          <!-- Danh sách nhân viên -->
+          <div class="tab-pane active" id="employees-pane">
+            <div class="wrapper">
+              <h2>DANH SÁCH NHÂN VIÊN</h2>
+              <div class="filter-container">
+                <div class="filter-row">
+                  <div class="input-field search-bar">
+                    <input type="text" id="employee-search" placeholder="Tìm kiếm theo tên, mã hoặc vị trí..." />
+                    <label>Tìm kiếm</label>
+                  </div>
+                  <div class="button-group">
+                    <button id="search-employee-btn" class="primary-button">Tìm kiếm</button>
+                    <button id="reset-employee-filter-btn" class="cancel-button">Đặt lại</button>
+                    <button id="export-employee-excel-btn" class="secondary-button">Xuất Excel</button>
+                  </div>
+                </div>
+              </div>
+              <table class="employee-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Họ và tên</th>
+                    <th>Vị trí</th>
+                    <th>Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody id="employee-list">
+                  <!-- Dữ liệu sẽ được thêm vào đây bằng JavaScript -->
+                  <tr>
+                    <td colspan="4">Đang tải dữ liệu...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          <!-- Quản lý chấm công -->
+          <div class="tab-pane" id="attendance-pane">
+            <div class="wrapper">
+              <h2>QUẢN LÝ CHẤM CÔNG</h2>
+              <div class="filter-container">
+                <div class="filter-grid">
+                  <div class="filter-top-row">
+                    <div class="input-field search-bar">
+                      <input type="text" id="attendance-search" placeholder="Tìm kiếm theo ID hoặc tên nhân viên..." />
+                      <label style = "padding-bottom: 15px">Tìm kiếm</label>
+                    </div>
+                    
+                    <div class="filter-date-group">
+                      <div class="input-field date-range">
+                        <label>Từ ngày</label>
+                        <input type="date" id="attendance-date-from" />
+                      </div>
+                      <div class="input-field date-range">
+                        <label>Đến ngày</label>
+                        <input type="date" id="attendance-date-to" />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div class="filter-select-group">
+                    <div class="input-field">
+                      <select id="status-filter">
+                        <option value="all" style="color: #333; background-color: white;">Tất cả trạng thái</option>
+                        <option value="ontime" style="color: #333; background-color: white;">Đúng giờ</option>
+                        <option value="late" style="color: #333; background-color: white;">Check in muộn</option>
+                        <option value="early" style="color: #333; background-color: white;">Check out sớm</option>
+                        <option value="lateearly" style="color: #333; background-color: white;">Check in muộn & Check out sớm</option>
+                        <option value="error" style="color: #333; background-color: white;">Máy chấm công lỗi</option>
+                      </select>
+                      <label>Ghi chú</label>
+                    </div>
+                    
+                    <div class="input-field">
+                      <select id="late-filter">
+                        <option value="all" style="color: #333; background-color: white;">Tất cả</option>
+                        <option value="yes" style="color: #333; background-color: white;">Có</option>
+                        <option value="no" style="color: #333; background-color: white;">Không</option>
+                      </select>
+                      <label>Đi muộn</label>
+                    </div>
+                    
+                    <div class="input-field">
+                      <select id="early-filter">
+                        <option value="all" style="color: #333; background-color: white;">Tất cả</option>
+                        <option value="yes" style="color: #333; background-color: white;">Có</option>
+                        <option value="no" style="color: #333; background-color: white;">Không</option>
+                      </select>
+                      <label>Về sớm</label>
+                    </div>
+                    
+                    <div class="input-field">
+                      <select id="shift-count-filter">
+                        <option value="all" style="color: #333; background-color: white;">Tất cả</option>
+                        <option value="1" style="color: #333; background-color: white;">1 ca</option>
+                        <option value="2" style="color: #333; background-color: white;">2 ca</option>
+                      </select>
+                      <label>Số ca làm việc</label>
+                    </div>
+                  </div>
+                  
+                  <div class="filter-button-group">
+                    <button id="search-attendance-btn" class="primary-button">Tìm kiếm</button>
+                    <button id="reset-attendance-filter-btn" class="cancel-button">Đặt lại</button>
+                    <button id="export-attendance-excel-btn" class="secondary-button">Xuất Excel</button>
+                  </div>
+                </div>
+              </div>
+              <div class="attendance-table-container">
+                <table class="attendance-table">
+                  <thead>
+                    <tr>
+                      <th>Ngày</th>
+                      <th>ID</th>
+                      <th>Tên NV</th>
+                      <th>Ca 1</th>
+                      <th>Ca 2</th>
+                      <th>Đi muộn</th>
+                      <th>Về sớm</th>
+                      <th>Số giờ</th>
+                      <th>Số ca</th>
+                      <th>Ghi chú</th>
+                    </tr>
+                  </thead>
+                  <tbody id="attendance-list">
+                    <!-- Dữ liệu sẽ được thêm vào đây bằng JavaScript -->
+                  </tbody>
+                </table>
+              </div>
+              <div class="pagination" id="attendance-pagination">
+                <!-- Nút phân trang sẽ được thêm vào đây bằng JavaScript -->
+              </div>
+            </div>
+          </div>
+          
+          <!-- Xử lý khiếu nại -->
+          <div class="tab-pane" id="complaints-pane">
+            <div class="wrapper">
+              <h2>XỬ LÝ KHIẾU NẠI</h2>
+              <div class="filter-container">
+                <div class="filter-top-row">
+                  <div class="input-field search-bar">
+                    <input type="text" id="complaints-search" placeholder="Tìm kiếm theo ID hoặc tên nhân viên..." />
+                    <label style="padding-bottom: 15px">Tìm kiếm</label>
+                  </div>
+                  <div class="filter-date-group">
+                    <div class="input-field date-range">
+                      <label>Từ ngày</label>
+                      <input type="date" id="complaints-date-from" />
+                    </div>
+                    <div class="input-field date-range">
+                      <label>Đến ngày</label>
+                      <input type="date" id="complaints-date-to" />
+                    </div>
+                  </div>
+                </div>
+                <div class="filter-select-group">
+                  <div class="input-field">
+                    <select id="complaint-status-filter">
+                      <option value="all" style="color: #333; background-color: white;">Tất cả trạng thái</option>
+                      <option value="pending" style="color: #333; background-color: white;">Chưa xử lý</option>
+                      <option value="approved" style="color: #333; background-color: white;">Đã duyệt</option>
+                      <option value="rejected" style="color: #333; background-color: white;">Không duyệt</option>
+                    </select>
+                    <label>Trạng thái</label>
+                  </div>
+                  <div class="input-field">
+                    <select id="complaint-reason-filter">
+                      <option value="all" style="color: #333; background-color: white;">Tất cả lý do</option>
+                      <option value="Máy chấm công nhận diện nhầm người" style="color: #333; background-color: white;">Máy chấm công nhận diện nhầm người</option>
+                      <option value="Máy chấm công không nhận diện" style="color: #333; background-color: white;">Máy chấm công không nhận diện</option>
+                      <option value="Camera không lên" style="color: #333; background-color: white;">Camera không lên</option>
+                      <option value="Thiết bị không phản hồi" style="color: #333; background-color: white;">Thiết bị không phản hồi</option>
+                      <option value="Chấm công không ghi nhận" style="color: #333; background-color: white;">Chấm công không ghi nhận</option>
+                      <option value="Lý do khác" style="color: #333; background-color: white;">Lý do khác</option>
+                    </select>
+                    <label>Lý do</label>
+                  </div>
+                  <div class="filter-button-group">
+                    <button id="search-complaints-btn" class="primary-button">Tìm kiếm</button>
+                    <button id="reset-complaints-filter-btn" class="cancel-button">Đặt lại</button>
+                    <button id="export-complaints-excel-btn" class="secondary-button">Xuất Excel</button>
+                  </div>
+                </div>
+              </div>
+
+              <table class="complaints-table">
+                <thead>
+                  <tr>
+                    <th>Ngày</th>
+                    <th>Giờ</th>
+                    <th>ID</th>
+                    <th>Nhân viên</th>
+                    <th>Lý do</th>
+                    <th>Trạng thái</th>
+                    <th style="text-align: left;">Chi tiết</th>
+                  </tr>
+                </thead>
+                <tbody id="complaints-list">
+                  <!-- Dữ liệu sẽ được thêm vào đây bằng JavaScript -->
+                </tbody>
+              </table>
+              <div class="pagination" id="complaints-pagination">
+                <!-- Nút phân trang sẽ được thêm vào đây bằng JavaScript -->
+              </div>
+            </div>
+          </div>
+          
+          <!-- Modal chi tiết khiếu nại -->
+          <div id="complaint-detail-modal" class="modal">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h2>Chi tiết khiếu nại</h2>
+                <span class="close-modal" id="close-complaint-detail">&times;</span>
+              </div>
+              <div class="modal-body">
+                <p><strong>Mã nhân viên:</strong> <span id="detail-employee-id"></span></p>
+                <p><strong>Tên nhân viên:</strong> <span id="detail-employee-name"></span></p>
+                <p><strong>Ngày khiếu nại:</strong> <span id="detail-complaint-date"></span></p>
+                <p><strong>Giờ khiếu nại:</strong> <span id="detail-complaint-time"></span></p>
+                <p><strong>Lý do:</strong> <span id="detail-reason"></span></p>
+                <p><strong>Trạng thái:</strong> <span id="detail-status"></span></p>
+                
+                <div class="complaint-image-container">
+                  <img id="detail-complaint-image" src="#" alt="Ảnh khiếu nại">
+                </div>
+              </div>
+              <div class="modal-footer">
+                <div class="complaint-actions">
+                  <button id="approve-complaint" class="approve-btn">
+                    <i class="fas fa-check"></i> Duyệt khiếu nại
+                  </button>
+                  <button id="reject-complaint" class="reject-btn">
+                    <i class="fas fa-times"></i> Không duyệt
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Biểu đồ thống kê -->
+          <div class="tab-pane" id="statistics-pane">
+            <div class="wrapper">
+              <h2>BIỂU ĐỒ THỐNG KÊ</h2>
+              <div class="statistics-container">
+                <div class="statistics-filters">
+                  <select id="stat-month-filter">
+                    <option value="1">Tháng 1</option>
+                    <option value="2">Tháng 2</option>
+                    <option value="3">Tháng 3</option>
+                    <option value="4">Tháng 4</option>
+                    <option value="5">Tháng 5</option>
+                    <option value="6">Tháng 6</option>
+                    <option value="7">Tháng 7</option>
+                    <option value="8">Tháng 8</option>
+                    <option value="9">Tháng 9</option>
+                    <option value="10">Tháng 10</option>
+                    <option value="11">Tháng 11</option>
+                    <option value="12">Tháng 12</option>
+                  </select>
+                  <select id="stat-year-filter">
+                    <option value="2024">2024</option>
+                    <option value="2025">2025</option>
+                  </select>
+                  <button id="apply-stat-filter">Áp dụng</button>
+                </div>
+                
+                <div class="chart-wrapper">
+                  <div class="chart-title">Thống kê đi muộn</div>
+                  <div id="late-chart"></div>
+                </div>
+                
+                <div class="chart-wrapper">
+                  <div class="chart-title">Thống kê về sớm</div>
+                  <div id="early-chart"></div>
+                </div>
+                
+                <div class="chart-wrapper">
+                  <div class="chart-title">Số giờ làm việc theo tháng</div>
+                  <div id="monthly-chart"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Cài đặt ca làm -->
+          <div class="tab-pane" id="shifts-pane">
+            <div class="wrapper">
+              <h2>CÀI ĐẶT CA LÀM VIỆC</h2>
+              <div class="shifts-config-container">
+                <div class="config-left">
+                  <form id="shifts-config-form">
+                    <div class="form-title">
+                      <h3>Thiết lập thời gian làm việc</h3>
+                      <p class="description">Cài đặt thời gian làm việc cho tất cả nhân viên</p>
+                    </div>
+                    
+                    <div class="shifts-group">
+                      <div class="shift-header">
+                        <h4>Ca làm việc 1</h4>
+                        <div class="shift-tag">Sáng</div>
+                      </div>
+                      <div class="shift-fields">
+                        <div class="input-field">
+                          <input type="time" required id="shift1-check-in" name="shift1-check-in" />
+                          <label>Giờ bắt đầu</label>
+                        </div>
+                        <div class="shift-separator"><i class="fas fa-arrow-right"></i></div>
+                        <div class="input-field">
+                          <input type="time" required id="shift1-check-out" name="shift1-check-out" />
+                          <label>Giờ kết thúc</label>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div class="shifts-group">
+                      <div class="shift-header">
+                        <h4>Ca làm việc 2</h4>
+                        <div class="shift-tag">Chiều</div>
+                      </div>
+                      <div class="shift-fields">
+                        <div class="input-field">
+                          <input type="time" required id="shift2-check-in" name="shift2-check-in" />
+                          <label>Giờ bắt đầu</label>
+                        </div>
+                        <div class="shift-separator"><i class="fas fa-arrow-right"></i></div>
+                        <div class="input-field">
+                          <input type="time" required id="shift2-check-out" name="shift2-check-out" />
+                          <label>Giờ kết thúc</label>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div id="shifts-error-message" class="error-message"></div>
+                    
+                    <div class="button-row">
+                      <button type="submit" class="primary-button" id="save-shifts-btn">
+                        <i class="fas fa-save"></i> Lưu cấu hình
+                      </button>
+                    </div>
+                  </form>
+                </div>
+                
+                <div class="config-right">
+                  <div class="info-card">
+                    <h3><i class="fas fa-info-circle"></i> Lưu ý quan trọng</h3>
+                    <ul>
+                      <li>Giờ bắt đầu ca 2 phải <strong>sau ít nhất 10 phút</strong> so với giờ kết thúc ca 1 để đảm bảo đủ thời gian nghỉ giữa ca.</li>
+                      <li>Mỗi ca làm việc phải có <strong>thời lượng tối thiểu 30 phút</strong>, nếu không sẽ không được hệ thống chấp nhận.</li>
+                      <li>Khi thay đổi cấu hình ca làm việc, <strong>tất cả nhân viên</strong> sẽ bị ảnh hưởng và áp dụng thời gian mới.</li>
+                      <li>Việc thay đổi ca làm sẽ ảnh hưởng đến <strong>tính toán đi muộn/về sớm</strong> của nhân viên trong các báo cáo.</li>
+                      <li>Cài đặt này ảnh hưởng <strong>trực tiếp</strong> đến quá trình chấm công và tính toán giờ làm việc.</li>
+                    </ul>
+                  </div>
+                  
+                  <div class="current-config-card">
+                    <h3><i class="fas fa-clock"></i> Cấu hình hiện tại</h3>
+                    <div class="current-shifts">
+                      <div class="current-shift">
+                        <span class="shift-label">Ca 1:</span>
+                        <span class="shift-time" id="current-shift1">07:00 - 12:00</span>
+                      </div>
+                      <div class="current-shift">
+                        <span class="shift-label">Ca 2:</span>
+                        <span class="shift-time" id="current-shift2">13:00 - 17:00</span>
+                      </div>
+                    </div>
+                    <p class="last-updated">Cập nhật lần cuối: <span id="last-updated-time">Chưa cập nhật</span></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Báo cáo Tab -->
+          <div id="bao-cao" class="tab-pane fade">
+            <h3 class="text-center">Thống kê và Báo cáo</h3>
+            
+            <div class="row mb-4">
+              <div class="col-md-4">
+                <div class="chart-container">
+                  <h4 class="text-center">Thống kê đi muộn</h4>
+                  <canvas id="late-chart"></canvas>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="chart-container">
+                  <h4 class="text-center">Thống kê về sớm</h4>
+                  <canvas id="early-chart"></canvas>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="chart-container">
+                  <h4 class="text-center">Tổng hợp điểm danh</h4>
+                  <div class="attendance-summary">
+                    <div class="summary-item">
+                      <span class="summary-value" id="total-employees">0</span>
+                      <span class="summary-label">Tổng nhân viên</span>
+                    </div>
+                    <div class="summary-item">
+                      <span class="summary-value" id="present-today">0</span>
+                      <span class="summary-label">Có mặt hôm nay</span>
+                    </div>
+                    <div class="summary-item">
+                      <span class="summary-value" id="absent-today">0</span>
+                      <span class="summary-label">Vắng mặt hôm nay</span>
+                    </div>
+                    <div class="summary-item">
+                      <span class="summary-value" id="late-today">0</span>
+                      <span class="summary-label">Đi muộn hôm nay</span>
+                    </div>
+                    <div class="summary-item">
+                      <span class="summary-value" id="early-today">0</span>
+                      <span class="summary-label">Về sớm hôm nay</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="row">
+              <div class="col-md-12">
+                <div class="chart-container chart-container-large">
+                  <h4 class="text-center">Giờ làm việc theo ngày</h4>
+                  <canvas id="monthly-chart"></canvas>
+                </div>
+              </div>
+            </div>
+            
+            <div class="row mt-4">
+              <div class="col-md-12">
+                <div class="export-container">
+                  <h4>Xuất báo cáo</h4>
+                  <div class="form-group row">
+                    <label for="report-from-date" class="col-sm-1 col-form-label">Từ ngày:</label>
+                    <div class="col-sm-2">
+                      <input type="date" class="form-control" id="report-from-date">
+                    </div>
+                    <label for="report-to-date" class="col-sm-1 col-form-label">Đến ngày:</label>
+                    <div class="col-sm-2">
+                      <input type="date" class="form-control" id="report-to-date">
+                    </div>
+                    <div class="col-sm-3">
+                      <select class="form-control" id="report-type">
+                        <option value="attendance">Báo cáo chấm công</option>
+                        <option value="late-early">Báo cáo đi muộn/về sớm</option>
+                        <option value="summary">Báo cáo tổng hợp</option>
+                      </select>
+                    </div>
+                    <div class="col-sm-3">
+                      <button class="btn btn-success" id="export-report-btn">Xuất báo cáo</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Modal thêm/sửa nhân viên -->
+    <div id="employeeModal" class="modal-overlay">
+      <div class="wrapper">
+        <form id="employee-form">
+          <h2 id="employee-modal-title">Thêm nhân viên mới</h2>
+          <div class="input-field">
+            <input type="text" required name="name" id="employee-name" />
+            <label>Tên nhân viên</label>
+          </div>
+          <div class="input-field">
+            <input type="text" required name="position" id="employee-position" />
+            <label>Vị trí làm việc</label>
+          </div>
+          <input type="hidden" id="employee-id" value="" />
+          <div class="button-row">
+            <button type="button" class="cancel-button" id="cancel-employee-btn">Hủy</button>
+            <button type="submit" class="primary-button" id="save-employee-btn">Lưu</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal thêm/sửa ca làm việc -->
+    <div id="shiftModal" class="modal-overlay">
+      <div class="wrapper">
+        <form id="shift-form">
+          <h2 id="shift-modal-title">Thêm ca làm việc</h2>
+          <div class="input-field">
+            <input type="text" required name="name" id="shift-name" />
+            <label>Tên ca</label>
+          </div>
+          <div class="input-field">
+            <input type="time" required name="check_in_time" id="shift-check-in" />
+            <label>Giờ bắt đầu</label>
+          </div>
+          <div class="input-field">
+            <input type="time" required name="check_out_time" id="shift-check-out" />
+            <label>Giờ kết thúc</label>
+          </div>
+          <div class="input-field checkbox-field">
+            <input type="checkbox" name="active" id="shift-active" checked />
+            <label>Kích hoạt</label>
+          </div>
+          <input type="hidden" id="shift-id" value="" />
+          <div class="button-row">
+            <button type="button" class="cancel-button" id="cancel-shift-btn">Hủy</button>
+            <button type="submit" class="primary-button" id="save-shift-btn">Lưu</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="/static/js/admin.js" type="module"></script>
+    <script>
+      // Xử lý nút đăng xuất
+      document.querySelector('.power-button').addEventListener('click', function(e) {
+        e.preventDefault();
+        if (confirm('Bạn có chắc muốn đăng xuất?')) {
+          window.location.href = '/logout';
+        }
+      });
+    </script>
+  </body>
+</html> 

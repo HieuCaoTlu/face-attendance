@@ -4,21 +4,22 @@ import random
 from utils.date import *
 from database import session, Employee, Attendance, Shift
 
-def add_attendance(id, shift):
+def add_attendance(id, shift, date):
     global message
-    new_attendance = Attendance(employee_id=id, shift=shift)
+    new_attendance = Attendance(employee_id=id, shift=shift, date=date)
     session.add(new_attendance)
     session.commit()
     session.refresh(new_attendance)
     return new_attendance
 
-def checkin(id):
+def checkin(id, time=None, date=None):
     employee = session.query(Employee).filter_by(id=id).first()
     if not employee: return
-    current_time = get_time()
+    current_time = get_time() if not time else time
     current_shift = None
-    current_date = get_date()
+    current_date = get_date() if not date else date
     shifts = session.query(Shift).all()
+    if len(shifts) == 0: return
     recs = session.query(Attendance).filter(Attendance.employee_id == id, Attendance.date == current_date).all()
 
     for shift in shifts:
@@ -50,7 +51,7 @@ def checkin(id):
     message = 'checkout'
     if not current_his:
         if not previous_his:
-            recs.append(add_attendance(id, current_shift.name))
+            recs.append(add_attendance(id, current_shift.name, current_date))
             message = 'checkin'
         else:
             if not previous_his.checkout:
@@ -59,7 +60,7 @@ def checkin(id):
                 if previous_his.checkout < previous_shift.checkout:
                     previous_his.checkout = current_time
                 else:
-                    recs.append(add_attendance(id, current_shift.name))
+                    recs.append(add_attendance(id, current_shift.name, current_date))
                     message = 'checkin'
     else:
         if not current_his.checkout and current_time > current_shift.checkin:
