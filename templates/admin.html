@@ -273,42 +273,23 @@
                 <span class="close-modal" id="close-complaint-detail">&times;</span>
               </div>
               <div class="modal-body">
-                <div class="complaint-blocks">
-                  <div class="complaint-info-block employee-info">
-                    <h3><i class="fas fa-user-circle"></i> Nhân viên</h3>
-                    <p><strong>Mã nhân viên:</strong> <span id="detail-employee-id">2</span></p>
-                    <p><strong>Tên nhân viên:</strong> <span id="detail-employee-name">vi rút</span></p>
-                  </div>
-                  
-                  <div class="complaint-info-block date-info">
-                    <h3><i class="fas fa-calendar-alt"></i> Thời gian</h3>
-                    <p><strong>Ngày khiếu nại:</strong> <span id="detail-complaint-date">2025-03-31</span></p>
-                    <p><strong>Giờ khiếu nại:</strong> <span id="detail-complaint-time">20:58:08</span></p>
-                  </div>
-                  
-                  <div class="complaint-info-block reason-info">
-                    <h3><i class="fas fa-exclamation-circle"></i> Lý do</h3>
-                    <p id="detail-complaint-reason">Máy chấm công không nhận diện</p>
-                  </div>
-                  
-                  <div class="complaint-info-block status-info">
-                    <h3><i class="fas fa-info-circle"></i> Trạng thái</h3>
-                    <p id="detail-complaint-status">Chưa xử lý</p>
-                  </div>
-                  
-                  <div class="complaint-info-block image-info">
-                    <h3><i class="fas fa-image"></i> Ảnh chụp</h3>
-                    <div class="complaint-image-container">
-                      <img id="detail-complaint-image" src="#" alt="Ảnh khiếu nại">
-                    </div>
-                  </div>
-                </div>
+                <p><strong>Mã nhân viên:</strong> <span id="detail-employee-id"></span></p>
+                <p><strong>Tên nhân viên:</strong> <span id="detail-employee-name"></span></p>
+                <p><strong>Ngày khiếu nại:</strong> <span id="detail-complaint-date"></span></p>
+                <p><strong>Giờ khiếu nại:</strong> <span id="detail-complaint-time"></span></p>
+                <p><strong>Lý do:</strong> <span id="detail-reason"></span></p>
+                <p><strong>Trạng thái:</strong> <span id="detail-status"></span></p>
                 
-                <div class="modal-actions">
-                  <button id="approve-complaint" class="approve-btn" onclick="processComplaint('approve')">
+                <div class="complaint-image-container">
+                  <img id="detail-complaint-image" src="#" alt="Ảnh khiếu nại">
+                </div>
+              </div>
+              <div class="modal-footer">
+                <div class="complaint-actions">
+                  <button id="approve-complaint" class="approve-btn">
                     <i class="fas fa-check"></i> Duyệt khiếu nại
                   </button>
-                  <button id="reject-complaint" class="reject-btn" onclick="processComplaint('reject')">
+                  <button id="reject-complaint" class="reject-btn">
                     <i class="fas fa-times"></i> Không duyệt
                   </button>
                 </div>

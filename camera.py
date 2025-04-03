@@ -32,7 +32,7 @@ def init_camera():
 
     # Khởi tạo camera nếu chưa có
     if video_capture is None or not video_capture.isOpened():
-        video_capture = cv2.VideoCapture(0)
+        video_capture = cv2.VideoCapture(0, cv2.CAP_DSHOW)
         video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
         video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
         video_capture.set(cv2.CAP_PROP_FPS, 60)
@@ -138,13 +138,14 @@ def generate_predict_camera():
         data = { "image": frame_binary }
 
         if attendance_successful:
-            data["attendance"] = checkin(prev_label)
-            data["valid"] = True
-            attendance_successful = False
-            prev_label = None
-            label_start_time = curr_time
-            attendance_cooldown = curr_time + APPLY_COOLDOWN
-
+            result = checkin(prev_label)
+            if result:
+                data["attendance"] = result
+                data["valid"] = True
+                attendance_successful = False
+                prev_label = None
+                label_start_time = curr_time
+                attendance_cooldown = curr_time + APPLY_COOLDOWN
         yield f"data: {json.dumps(data)}\n\n"
 
 def generate_train_camera(label):

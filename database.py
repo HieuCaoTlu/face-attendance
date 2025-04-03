@@ -3,6 +3,7 @@ from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from dotenv import load_dotenv
 from utils.date import *
 import os
+from datetime import datetime
 
 load_dotenv()
 
@@ -48,7 +49,7 @@ class Complaint(BaseModel):
     employee_id = Column(Integer, ForeignKey('employees.id'), nullable=False)
     reason = Column(String, nullable=False)
     processed = Column(Boolean, default=False)
-    image = Column(LargeBinary, nullable=False)
+    image_path = Column(LargeBinary, nullable=False)
     employee = relationship('Employee', back_populates='complaints')
 
 # 🔹 Định nghĩa Model

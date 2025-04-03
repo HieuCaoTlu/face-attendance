@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('name', name);
         formData.append('position', position);
         
-        response = await fetch(`/api/employees/${employeeId}`, {
+        response = await fetch(`/api/employee/${employeeId}`, {
           method: 'PUT',
           body: formData
         });
@@ -203,32 +203,49 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Xử lý form thêm/sửa ca làm việc
   if (shiftForm) {
-    shiftForm.addEventListener('submit', (e) => {
+    shiftForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       
       const shiftId = document.getElementById('shift-id')?.value || '';
       const name = document.getElementById('shift-name')?.value || '';
       const checkIn = document.getElementById('shift-check-in')?.value || '';
       const checkOut = document.getElementById('shift-check-out')?.value || '';
-      const isActive = document.getElementById('shift-active')?.checked || false;
       
-      // TODO: Gửi API thêm/sửa ca làm việc
-      
-      // Fake data để demo
+      try {
+        const formData = new FormData();
+        formData.append('name', name);
+        formData.append('checkin', checkIn);
+        formData.append('checkout', checkOut);
+        
+        let response;
+        
       if (!shiftId) {
-        // Thêm mới
-        if (shiftsList) {
-          const newId = shiftsList.children.length + 1;
-          appendShiftRow(newId, name, checkIn, checkOut, isActive);
-        }
+          // Thêm mới ca làm việc
+          response = await fetch('/api/shift', {
+            method: 'POST',
+            body: formData
+          });
       } else {
-        // Cập nhật
-        // TODO: Cập nhật row trong bảng
-        alert('Đã cập nhật ca làm việc!');
-      }
-      
-      if (shiftModal) {
+          // Cập nhật ca làm việc
+          response = await fetch(`/api/shift/${shiftId}`, {
+            method: 'PUT',
+            body: formData
+          });
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          // Tải lại danh sách ca làm việc
+          loadShifts();
         shiftModal.style.display = 'none';
+          alert('Thao tác thành công!');
+        } else {
+          alert(data.message || 'Có lỗi xảy ra khi thực hiện thao tác');
+        }
+      } catch (error) {
+        console.error('Lỗi:', error);
+        alert('Có lỗi xảy ra khi xử lý yêu cầu');
       }
     });
   }
@@ -426,7 +443,7 @@ document.getElementById('employee-list').addEventListener('click', function(e) {
       const row = button.closest('tr');
       
       try {
-        fetch(`/api/employees/${id}`, {
+        fetch(`/api/employee/${id}`, {
           method: 'DELETE'
         })
         .then(response => response.json())
@@ -496,38 +513,148 @@ function appendShiftRow(id, name, checkIn, checkOut, isActive) {
   document.getElementById('shifts-list').appendChild(row);
 }
 
-// Load danh sách nhân viên từ API
+// Tải danh sách nhân viên
 async function loadEmployees() {
   try {
-    const response = await fetch('/api/employees');
-    const data = await response.json();
+    console.log('Đang tải danh sách nhân viên...');
     
+    // Hiển thị thông báo đang tải
+    document.getElementById('employee-list').innerHTML = 
+      '<tr><td colspan="4" class="loading-message">Đang tải danh sách nhân viên...</td></tr>';
+    
+    // Gọi API để lấy danh sách nhân viên
+    const response = await fetch('/api/employee');
+    
+    if (!response.ok) {
+      throw new Error(`Lỗi khi gọi API: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('Dữ liệu nhân viên:', data);
+    
+    // Hiển thị dữ liệu vào bảng
     const employeeList = document.getElementById('employee-list');
     employeeList.innerHTML = '';
     
-    // Kiểm tra có dữ liệu không
-    if (data.employees && data.employees.length > 0) {
-      allEmployeesData = data.employees;
-      data.employees.forEach(employee => {
-        appendEmployeeRow(employee.id, employee.name, employee.position);
-      });
-    } else {
+    // Kiểm tra xem có dữ liệu không
+    if (!data.employees || data.employees.length === 0) {
       employeeList.innerHTML = '<tr><td colspan="4" class="no-data">Không có nhân viên nào</td></tr>';
+      return;
     }
+    
+    // Lưu dữ liệu vào biến toàn cục
+      allEmployeesData = data.employees;
+    
+    // Hiển thị từng nhân viên
+      data.employees.forEach(employee => {
+      // Tạo dòng mới trong bảng
+      const row = document.createElement('tr');
+      row.setAttribute('data-id', employee.id);
+      
+      // Thêm nội dung vào dòng
+      row.innerHTML = `
+        <td>${employee.id}</td>
+        <td class="employee-name">${employee.name}</td>
+        <td class="employee-position">Đang tải...</td>
+        <td class="action-buttons">
+          <button class="edit-btn" data-id="${employee.id}" data-name="${employee.name}">Sửa</button>
+          <button class="delete-btn" data-id="${employee.id}">Xóa</button>
+        </td>
+      `;
+      
+      // Thêm dòng vào bảng
+      employeeList.appendChild(row);
+      
+      // Lấy chi tiết nhân viên và cập nhật vị trí
+      fetch(`/api/employee/${employee.id}`)
+        .then(response => response.json())
+        .then(detailData => {
+          if (detailData.success) {
+            const position = detailData.position || 'Không có';
+            const positionCell = row.querySelector('.employee-position');
+            if (positionCell) {
+              positionCell.textContent = position;
+            }
+            
+            // Cập nhật nút sửa với thông tin đầy đủ
+            const editButton = row.querySelector('.edit-btn');
+            if (editButton) {
+              editButton.setAttribute('data-position', position);
+            }
+          }
+        })
+        .catch(error => {
+          console.error(`Lỗi khi lấy chi tiết nhân viên ${employee.id}:`, error);
+          const positionCell = row.querySelector('.employee-position');
+          if (positionCell) {
+            positionCell.textContent = 'Không có';
+          }
+        });
+    });
   } catch (error) {
-    console.error('Lỗi khi tải dữ liệu nhân viên:', error);
+    console.error('Lỗi khi tải danh sách nhân viên:', error);
     document.getElementById('employee-list').innerHTML = 
-      '<tr><td colspan="4" class="error-message">Lỗi khi tải dữ liệu. Vui lòng thử lại sau.</td></tr>';
+      '<tr><td colspan="4" class="error-message">Lỗi: ' + error.message + '</td></tr>';
   }
+}
+
+// Hàm lấy chi tiết một nhân viên và hiển thị
+function loadEmployeeDetail(employee, employeeList) {
+  fetch(`/api/employee/${employee.id}`)
+    .then(response => response.json())
+    .then(detailData => {
+      if (detailData.success) {
+        const position = detailData.position || 'Không có';
+        
+        // Tạo dòng mới trong bảng
+        const row = document.createElement('tr');
+        row.setAttribute('data-id', employee.id);
+        row.setAttribute('data-name', employee.name.toLowerCase());
+        row.setAttribute('data-position', position.toLowerCase());
+        
+        // Thêm nội dung vào dòng
+        row.innerHTML = `
+          <td>${employee.id}</td>
+          <td class="employee-name">${employee.name}</td>
+          <td class="employee-position">${position}</td>
+          <td class="action-buttons">
+            <button class="edit-btn" data-id="${employee.id}" data-name="${employee.name}" data-position="${position}">Sửa</button>
+            <button class="delete-btn" data-id="${employee.id}">Xóa</button>
+          </td>
+        `;
+        
+        // Thêm dòng vào bảng
+        employeeList.appendChild(row);
+      }
+    })
+    .catch(error => {
+      console.error(`Lỗi khi lấy chi tiết nhân viên ${employee.id}:`, error);
+      
+      // Nếu không lấy được chi tiết, vẫn hiển thị thông tin cơ bản
+      const row = document.createElement('tr');
+      row.setAttribute('data-id', employee.id);
+      row.setAttribute('data-name', employee.name.toLowerCase());
+      
+      row.innerHTML = `
+        <td>${employee.id}</td>
+        <td class="employee-name">${employee.name}</td>
+        <td class="employee-position">Không có</td>
+        <td class="action-buttons">
+          <button class="edit-btn" data-id="${employee.id}" data-name="${employee.name}">Sửa</button>
+          <button class="delete-btn" data-id="${employee.id}">Xóa</button>
+        </td>
+      `;
+      
+      employeeList.appendChild(row);
+    });
 }
 
 async function loadShifts() {
   try {
-    const response = await fetch('/api/shifts');
+    const response = await fetch('/api/shift');
     const data = await response.json();
     
-    if (data.success) {
-      const shiftsList = document.getElementById('shifts-list');
+    const shiftsList = document.querySelector('#shifts-list');
       if (shiftsList) {
         shiftsList.innerHTML = '';
         
@@ -536,9 +663,9 @@ async function loadShifts() {
             appendShiftRow(
               shift.id,
               shift.name,
-              shift.check_in_time,
-              shift.check_out_time,
-              shift.active
+            shift.checkin,
+            shift.checkout,
+            true
             );
           });
         } else {
@@ -550,13 +677,6 @@ async function loadShifts() {
       
       // Cập nhật cấu hình ca làm việc hiện tại
       updateCurrentShiftsDisplay();
-    } else {
-      console.error('Lỗi khi tải dữ liệu ca làm việc:', data.message);
-      if (document.getElementById('shifts-list')) {
-        document.getElementById('shifts-list').innerHTML = 
-          '<tr><td colspan="5" class="error-message">Lỗi khi tải dữ liệu. Vui lòng thử lại sau.</td></tr>';
-      }
-    }
   } catch (error) {
     console.error('Lỗi khi tải dữ liệu ca làm việc:', error);
     if (document.getElementById('shifts-list')) {
@@ -576,10 +696,6 @@ async function loadAttendance() {
     const searchText = document.getElementById('attendance-search').value.trim();
     const fromDate = document.getElementById('attendance-date-from').value;
     const toDate = document.getElementById('attendance-date-to').value;
-    const statusFilter = document.getElementById('status-filter').value;
-    const lateFilter = document.getElementById('late-filter').value;
-    const earlyFilter = document.getElementById('early-filter').value;
-    const shiftCountFilter = document.getElementById('shift-count-filter').value;
     
     // Tạo URL với tham số truy vấn
     let url = '/api/attendance';
@@ -613,37 +729,7 @@ async function loadAttendance() {
         });
       }
       
-      if (statusFilter !== 'all') {
-        filteredData = filteredData.filter(item => {
-          if (statusFilter === 'ontime') return item.note === 'Đúng giờ';
-          if (statusFilter === 'late') return item.note === 'Check in muộn';
-          if (statusFilter === 'early') return item.note === 'Check out sớm';
-          if (statusFilter === 'lateearly') return item.note === 'Check in muộn & Check out sớm';
-          if (statusFilter === 'error') return item.note === 'Máy chấm công lỗi';
-          return true;
-        });
-      }
-      
-      if (lateFilter !== 'all') {
-        filteredData = filteredData.filter(item => {
-          if (lateFilter === 'yes') return item.lateMinutes > 0;
-          return item.lateMinutes === 0;
-        });
-      }
-      
-      if (earlyFilter !== 'all') {
-        filteredData = filteredData.filter(item => {
-          if (earlyFilter === 'yes') return item.earlyMinutes > 0;
-          return item.earlyMinutes === 0;
-        });
-      }
-      
-      if (shiftCountFilter !== 'all') {
-        filteredData = filteredData.filter(item => {
-          return item.shiftCount.toString() === shiftCountFilter;
-        });
-      }
-      
+      // Cập nhật dữ liệu hiện tại
       currentAttendanceData = filteredData;
       attendancePage = 1;
       displayAttendancePage(attendancePage);
@@ -1008,79 +1094,116 @@ function calculateEarlyMinutes(actualCheckOut, expectedCheckOut) {
   return expected > actual ? expected - actual : 0;
 }
 
-// Hàm gửi API cập nhật cấu hình ca làm
-async function updateShiftsConfig(config) {
+// Cập nhật cấu hình ca làm việc
+async function updateShiftsConfig() {
   try {
-    console.log("Đang gửi cấu hình mới:", config);
-    const response = await fetch('/api/shifts/config', {
+    // Lấy giá trị từ form
+    const shift1Start = document.getElementById('shift1-start').value;
+    const shift1End = document.getElementById('shift1-end').value;
+    const shift2Start = document.getElementById('shift2-start').value;
+    const shift2End = document.getElementById('shift2-end').value;
+    
+    // Kiểm tra dữ liệu hợp lệ
+    if (!shift1Start || !shift1End || !shift2Start || !shift2End) {
+      alert('Vui lòng nhập đầy đủ thời gian cho cả hai ca làm việc');
+      return;
+    }
+    
+    // Chuyển đổi sang đối tượng Date để so sánh
+    const s1Start = new Date(`2000-01-01T${shift1Start}`);
+    const s1End = new Date(`2000-01-01T${shift1End}`);
+    const s2Start = new Date(`2000-01-01T${shift2Start}`);
+    const s2End = new Date(`2000-01-01T${shift2End}`);
+    
+    // Kiểm tra thời gian check-in phải trước check-out
+    if (s1Start >= s1End) {
+      alert('Ca 1: Thời gian check-in phải trước thời gian check-out');
+      return;
+    }
+    
+    if (s2Start >= s2End) {
+      alert('Ca 2: Thời gian check-in phải trước thời gian check-out');
+      return;
+    }
+    
+    // Kiểm tra giữa hai ca phải có khoảng nghỉ
+    if (s1End >= s2Start) {
+      alert('Thời gian giữa hai ca phải có khoảng nghỉ (ca 1 kết thúc phải trước ca 2 bắt đầu)');
+      return;
+    }
+    
+    // Chuẩn bị dữ liệu gửi lên server theo đúng định dạng API
+    const newConfig = {
+      shift1: {
+        checkIn: shift1Start,
+        checkOut: shift1End
+      },
+      shift2: {
+        checkIn: shift2Start,
+        checkOut: shift2End
+      }
+    };
+    
+    console.log('Cấu hình ca làm mới:', newConfig);
+    
+    // Hiển thị trạng thái đang lưu
+    const saveButton = document.getElementById('save-shifts-btn');
+    saveButton.textContent = 'Đang lưu...';
+    saveButton.disabled = true;
+    
+    // Gọi API cập nhật
+    const response = await fetch('/api/shift/config', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(config)
+      body: JSON.stringify(newConfig)
     });
     
-    const data = await response.json();
-    console.log("Kết quả cập nhật:", data);
-    
-    if (!data.success) {
-      throw new Error(data.message || 'Lỗi khi cập nhật cấu hình ca làm');
+    if (!response.ok) {
+      throw new Error(`API trả về lỗi: ${response.status}`);
     }
     
-    // Cập nhật biến toàn cục
-    shiftsConfig = config;
+    const result = await response.json();
+    console.log('Kết quả cập nhật ca làm:', result);
     
-    // Cập nhật hiển thị
-    document.getElementById('current-shift1').textContent = `${config.shift1.checkIn} - ${config.shift1.checkOut}`;
-    document.getElementById('current-shift2').textContent = `${config.shift2.checkIn} - ${config.shift2.checkOut}`;
-    document.getElementById('last-updated-time').textContent = new Date().toLocaleString('vi-VN', { hour12: false });
+    if (!result.success) {
+      throw new Error(result.message || 'Cập nhật cấu hình ca làm việc thất bại');
+    }
     
-    // Thông báo thành công
-    alert('Cấu hình ca làm việc đã được lưu và áp dụng thành công!');
+    // Cập nhật lại dữ liệu global
+    shiftsConfig = newConfig;
+    
+    // Cập nhật hiển thị trong card
+    const shift1StartEnd = `${shift1Start} - ${shift1End}`;
+    const shift2StartEnd = `${shift2Start} - ${shift2End}`;
+    
+    const currentShift1 = document.getElementById('current-shift1');
+    const currentShift2 = document.getElementById('current-shift2');
+    const lastUpdatedTime = document.getElementById('last-updated-time');
+    
+    if (currentShift1) currentShift1.textContent = shift1StartEnd;
+    if (currentShift2) currentShift2.textContent = shift2StartEnd;
+    
+    // Cập nhật thời gian hiển thị
+    if (lastUpdatedTime) {
+      const now = new Date();
+      lastUpdatedTime.textContent = now.toLocaleString('vi-VN');
+    }
+    
+    // Hiển thị thông báo thành công
+    alert('Cập nhật cấu hình ca làm việc thành công!');
     
     return true;
   } catch (error) {
-    console.error('Lỗi khi cập nhật cấu hình ca làm:', error);
-    alert(`Lỗi: ${error.message}`);
+    console.error('Lỗi khi cập nhật cấu hình ca làm việc:', error);
+    alert('Lỗi: ' + (error.message || 'Có lỗi xảy ra khi cập nhật cấu hình ca làm việc'));
     return false;
-  }
-}
-
-// Hàm lấy cấu hình ca làm hiện tại
-async function getShiftsConfig() {
-  try {
-    console.log("Đang lấy cấu hình ca làm việc...");
-    const response = await fetch('/api/shifts/config');
-    const data = await response.json();
-    console.log("Dữ liệu cấu hình ca làm:", data);
-    
-    if (!data.success) {
-      throw new Error(data.message || 'Lỗi khi lấy cấu hình ca làm');
-    }
-    
-    // Cập nhật biến toàn cục
-    shiftsConfig = data.config;
-    
-    // Hiển thị cấu hình lên form
-    document.getElementById('shift1-check-in').value = shiftsConfig.shift1.checkIn;
-    document.getElementById('shift1-check-out').value = shiftsConfig.shift1.checkOut;
-    document.getElementById('shift2-check-in').value = shiftsConfig.shift2.checkIn;
-    document.getElementById('shift2-check-out').value = shiftsConfig.shift2.checkOut;
-    
-    // Cập nhật thông tin hiển thị trong card
-    document.getElementById('current-shift1').textContent = `${shiftsConfig.shift1.checkIn} - ${shiftsConfig.shift1.checkOut}`;
-    document.getElementById('current-shift2').textContent = `${shiftsConfig.shift2.checkIn} - ${shiftsConfig.shift2.checkOut}`;
-    document.getElementById('last-updated-time').textContent = new Date().toLocaleString('vi-VN', { hour12: false });
-    
-    console.log("Đã cập nhật UI với cấu hình:", shiftsConfig);
-    return shiftsConfig;
-  } catch (error) {
-    console.error('Lỗi khi lấy cấu hình ca làm:', error);
-    
-    // Sử dụng cấu hình mặc định nếu có lỗi
-    setDefaultShiftsConfig();
-    
-    return shiftsConfig;
+  } finally {
+    // Khôi phục nút lưu
+    const saveButton = document.getElementById('save-shifts-btn');
+    saveButton.textContent = 'Lưu cấu hình';
+    saveButton.disabled = false;
   }
 }
 
@@ -1672,12 +1795,75 @@ document.addEventListener('DOMContentLoaded', function() {
   // Tải dữ liệu ban đầu
   getShiftsConfig();
   loadEmployees();
+  loadAttendance();
+  loadComplaints();
 });
-
-// ... existing code ...
 
 // Thiết lập xử lý sự kiện
 function setupEventHandlers() {
+  // Xử lý form cấu hình ca làm việc
+  const shiftsConfigForm = document.getElementById('shifts-config-form');
+  if (shiftsConfigForm) {
+    shiftsConfigForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      // Lấy giá trị từ form
+      const shift1CheckIn = document.getElementById('shift1-check-in').value;
+      const shift1CheckOut = document.getElementById('shift1-check-out').value;
+      const shift2CheckIn = document.getElementById('shift2-check-in').value;
+      const shift2CheckOut = document.getElementById('shift2-check-out').value;
+      
+      // Kiểm tra ca 1 và ca 2 có hợp lệ không
+      if (!isValidShift(shift1CheckIn, shift1CheckOut)) {
+        showError('Thời gian bắt đầu ca 1 phải trước thời gian kết thúc ca 1');
+        return;
+      }
+      
+      if (!isValidShift(shift2CheckIn, shift2CheckOut)) {
+        showError('Thời gian bắt đầu ca 2 phải trước thời gian kết thúc ca 2');
+        return;
+      }
+      
+      // Kiểm tra thời gian giữa ca 1 và ca 2
+      if (!isValidBreakBetweenShifts(shift1CheckOut, shift2CheckIn)) {
+        showError('Thời gian giữa ca 1 và ca 2 phải cách nhau ít nhất 10 phút');
+        return;
+      }
+      
+      // Ẩn thông báo lỗi nếu không có lỗi
+      hideError();
+      
+      // Hiển thị thông báo đang xử lý
+      document.getElementById('save-shifts-btn').disabled = true;
+      document.getElementById('save-shifts-btn').textContent = 'Đang lưu...';
+      
+      // Chuẩn bị dữ liệu để gửi API
+      const config = {
+        shift1: {
+          checkIn: shift1CheckIn,
+          checkOut: shift1CheckOut
+        },
+        shift2: {
+          checkIn: shift2CheckIn,
+          checkOut: shift2CheckOut
+        }
+      };
+      
+      // Gửi API cập nhật cấu hình ca làm việc
+      const success = await updateShiftsConfig(config);
+      
+      // Cập nhật trạng thái nút
+      document.getElementById('save-shifts-btn').disabled = false;
+      document.getElementById('save-shifts-btn').textContent = 'Lưu cấu hình';
+      
+      if (success) {
+        // Hiển thị thông báo thành công (đã được hiển thị trong hàm updateShiftsConfig)
+        // Tự động reload lại dữ liệu chấm công để cập nhật với ca mới
+        loadAttendance();
+      }
+    });
+  }
+
   // Xử lý các nút trong tab khiếu nại
   const searchComplaintsBtn = document.getElementById("search-complaints-btn");
   if (searchComplaintsBtn) {
@@ -1731,614 +1917,251 @@ function setupEventHandlers() {
   if (rejectComplaint) {
     rejectComplaint.addEventListener("click", () => processComplaint('reject'));
   }
-  
-  // Xử lý xuất Excel cho khiếu nại
-  const exportComplaintsExcelBtn = document.getElementById('export-complaints-excel-btn');
-  if (exportComplaintsExcelBtn) {
-    exportComplaintsExcelBtn.addEventListener('click', () => {
-      const table = document.querySelector('.complaints-table');
-      if (table) {
-        exportToExcel(table, 'danh_sach_khieu_nai.xlsx');
-      }
-    });
-  }
-  
-  // Thêm sự kiện Enter cho các thanh tìm kiếm khác
-  const employeeSearch = document.getElementById("employee-search");
-  if (employeeSearch) {
-    employeeSearch.addEventListener("keyup", function(event) {
-      if (event.key === "Enter") {
-        const searchEmployeeBtn = document.getElementById("search-employee-btn");
-        if (searchEmployeeBtn) {
-          searchEmployeeBtn.click();
-        }
-      }
-    });
-  }
-  
-  const attendanceSearch = document.getElementById("attendance-search");
-  if (attendanceSearch) {
-    attendanceSearch.addEventListener("keyup", function(event) {
-      if (event.key === "Enter") {
-        const searchAttendanceBtn = document.getElementById("search-attendance-btn");
-        if (searchAttendanceBtn) {
-          searchAttendanceBtn.click();
-        }
-      }
-    });
-  }
 }
-
-// ... existing code ...
 
 // Tải dữ liệu khiếu nại
 async function loadComplaints() {
   try {
-    // Hiển thị trạng thái đang tải
-    document.getElementById('complaints-list').innerHTML = '<tr><td colspan="7" class="loading-message">Đang tải dữ liệu khiếu nại...</td></tr>';
+    console.log('Đang tải danh sách khiếu nại...');
     
-    // Gọi API để lấy dữ liệu khiếu nại
-    fetch('/api/complaints')
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          // Nếu có dữ liệu khiếu nại
-          if (data.complaints && data.complaints.length > 0) {
-            // Lưu dữ liệu vào biến toàn cục
-            allComplaintsData = data.complaints;
-            
-            // Hiển thị trang đầu tiên
-            complaintsPage = 1;
-            displayComplaintsPage(complaintsPage);
-            createComplaintsPagination();
-          } else {
-            // Nếu không có dữ liệu khiếu nại
-            document.getElementById('complaints-list').innerHTML = '<tr><td colspan="7" class="no-data">Không có khiếu nại nào</td></tr>';
-            document.getElementById('complaints-pagination').innerHTML = '';
-          }
-        } else {
-          // Nếu API trả về lỗi
-          document.getElementById('complaints-list').innerHTML = `<tr><td colspan="7" class="error-message">Lỗi: ${data.message || 'Không thể tải dữ liệu khiếu nại'}</td></tr>`;
-          document.getElementById('complaints-pagination').innerHTML = '';
-        }
-      })
-      .catch(error => {
-        console.error('Lỗi khi tải dữ liệu khiếu nại:', error);
-        document.getElementById('complaints-list').innerHTML = '<tr><td colspan="7" class="error-message">Lỗi kết nối, vui lòng thử lại sau</td></tr>';
-        document.getElementById('complaints-pagination').innerHTML = '';
-      });
-  } catch (error) {
-    console.error('Lỗi khi tải dữ liệu khiếu nại:', error);
-    document.getElementById('complaints-list').innerHTML = '<tr><td colspan="7" class="error-message">Lỗi khi xử lý dữ liệu, vui lòng thử lại sau</td></tr>';
-    document.getElementById('complaints-pagination').innerHTML = '';
-  }
-}
-
-// Hiển thị trang khiếu nại
-function displayComplaintsPage(page, filteredData = null) {
-  const complaintsList = document.getElementById('complaints-list');
-  complaintsList.innerHTML = '';
-  
-  const data = filteredData !== null ? filteredData : allComplaintsData;
-  
-  if (data.length === 0) {
-    complaintsList.innerHTML = '<tr><td colspan="7" class="no-data">Không có dữ liệu khiếu nại</td></tr>';
+    // Hiển thị thông báo đang tải
+    document.getElementById('complaints-list').innerHTML = 
+      '<tr><td colspan="6" class="loading-message">Đang tải danh sách khiếu nại...</td></tr>';
+    
+    // Lấy dữ liệu từ API
+    const response = await fetch('/api/complaint');
+    console.log('API response status:', response.status);
+    
+    if (!response.ok) {
+      throw new Error(`API trả về lỗi: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('Dữ liệu khiếu nại nhận được:', data);
+    
+    // Kiểm tra và xử lý dữ liệu
+    if (data && data.success) {
+      // Lưu dữ liệu API gốc (dù có trống hay không)
+      allComplaintsData = data.complaints || [];
+      console.log('Số lượng khiếu nại nhận được:', allComplaintsData.length);
+      
+      // Hiển thị thông báo nếu không có dữ liệu
+      if (allComplaintsData.length === 0) {
+        document.getElementById('complaints-list').innerHTML = 
+          '<tr><td colspan="6" class="no-data">Không có khiếu nại nào</td></tr>';
     document.getElementById('complaints-pagination').innerHTML = '';
     return;
   }
   
-  // Tính số trang
-  const totalPages = Math.ceil(data.length / complaintsPerPage);
-  const currentPage = Math.min(page, totalPages);
-  
-  // Tính chỉ số bắt đầu và kết thúc
-  const startIndex = (currentPage - 1) * complaintsPerPage;
-  const endIndex = Math.min(startIndex + complaintsPerPage, data.length);
-  
-  // Lấy dữ liệu cho trang hiện tại
-  const currentPageData = data.slice(startIndex, endIndex);
-  
-  // Hiển thị dữ liệu
-  currentPageData.forEach(complaint => {
-    const statusClass = complaint.processed ? 
-      (complaint.status === "Đã xử lý" || complaint.status === "Đã duyệt" ? "approved" : "rejected") : 
-      "pending";
-    
-    const row = document.createElement('tr');
-    row.innerHTML = `
-      <td>${complaint.complaint_date || ''}</td>
-      <td>${complaint.complaint_time || ''}</td>
-      <td>${complaint.employee_id || ''}</td>
-      <td>${complaint.employee_name || ''}</td>
-      <td>${complaint.reason || ''}</td>
-      <td class="${statusClass}">${complaint.status || 'Chưa xử lý'}</td>
-      <td>
-        <button class="view-complaint-btn" data-id="${complaint.id}">
-          <i class="fas fa-eye"></i> Xem
-        </button>
-      </td>
-    `;
-    complaintsList.appendChild(row);
-  });
-  
-  // Thêm sự kiện cho nút xem chi tiết
-  document.querySelectorAll('.view-complaint-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const complaintId = btn.getAttribute('data-id');
-      showComplaintDetail(complaintId);
-    });
-  });
-  
-  // Cập nhật phân trang
-  createComplaintsPagination(currentPage, totalPages, filteredData !== null);
+      // Lấy giá trị các bộ lọc
+      const searchText = document.getElementById('complaint-search')?.value?.trim() || '';
+      const statusFilter = document.getElementById('complaint-status-filter')?.value || 'all';
+      const reasonFilter = document.getElementById('complaint-reason-filter')?.value || 'all';
+      
+      console.log('Bộ lọc áp dụng:', { searchText, statusFilter, reasonFilter });
+      
+      // Lọc dữ liệu
+      let filteredData = [...allComplaintsData];
+      console.log('Dữ liệu trước khi lọc:', filteredData.length);
+      
+      if (searchText) {
+        filteredData = filteredData.filter(item => {
+          const matchId = item.id && item.id.toString().includes(searchText);
+          const matchName = item.employee_name && item.employee_name.toLowerCase().includes(searchText.toLowerCase());
+          return matchId || matchName;
+        });
+        console.log('Số lượng sau khi lọc theo text:', filteredData.length);
+      }
+      
+      if (statusFilter !== 'all') {
+        filteredData = filteredData.filter(item => {
+          if (statusFilter === 'pending') return !item.processed;
+          if (statusFilter === 'approved') return item.processed && item.status === 'Đã duyệt';
+          if (statusFilter === 'rejected') return item.processed && item.status === 'Không duyệt';
+          return true;
+        });
+        console.log('Số lượng sau khi lọc theo status:', filteredData.length);
+      }
+      
+      if (reasonFilter !== 'all') {
+        filteredData = filteredData.filter(item => {
+          return item.reason === reasonFilter;
+        });
+        console.log('Số lượng sau khi lọc theo reason:', filteredData.length);
+      }
+      
+      // Cập nhật dữ liệu hiện tại
+      currentComplaintsData = filteredData;
+    complaintsPage = 1;
+      
+      console.log('Dữ liệu khiếu nại sẽ hiển thị:', currentComplaintsData.length);
+      
+      // Hiển thị dữ liệu
+  displayComplaintsPage(complaintsPage);
+      createComplaintsPagination();
+        } else {
+      // Xử lý trường hợp API thành công nhưng có lỗi từ server
+      console.error('API trả về lỗi:', data.message || 'Không có thông báo lỗi');
+      document.getElementById('complaints-list').innerHTML = 
+        '<tr><td colspan="6" class="error-message">Lỗi khi tải dữ liệu: ' + (data.message || 'Không rõ lỗi') + '</td></tr>';
+      document.getElementById('complaints-pagination').innerHTML = '';
+    }
+  } catch (error) {
+    console.error('Lỗi khi tải dữ liệu khiếu nại:', error);
+    document.getElementById('complaints-list').innerHTML = 
+      '<tr><td colspan="6" class="error-message">Lỗi khi tải dữ liệu: ' + error.message + '</td></tr>';
+    document.getElementById('complaints-pagination').innerHTML = '';
+  }
 }
 
-// Tạo phân trang cho khiếu nại
-function createComplaintsPagination(currentPage, totalPages, isFiltered) {
+// Hiển thị một trang của danh sách khiếu nại
+function displayComplaintsPage(page) {
+  try {
+    // Tính toán index bắt đầu và kết thúc
+    const startIndex = (page - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const displayData = currentComplaintsData.slice(startIndex, endIndex);
+    
+    console.log(`Hiển thị từ ${startIndex} đến ${endIndex}, tổng số ${currentComplaintsData.length} mục`);
+    
+    const complaintsList = document.getElementById('complaints-list');
+    complaintsList.innerHTML = '';
+    
+    if (!displayData || displayData.length === 0) {
+      complaintsList.innerHTML = '<tr><td colspan="7" class="no-data">Không có khiếu nại nào phù hợp với bộ lọc</td></tr>';
+      return;
+    }
+    
+    // Hiển thị dữ liệu
+    displayData.forEach(complaint => {
+      console.log('Đang hiển thị khiếu nại:', complaint);
+      
+      // Xác định trạng thái và lớp CSS tương ứng
+      let statusText, statusClass;
+      if (!complaint.processed) {
+        statusText = 'Chờ duyệt';
+        statusClass = 'pending';
+      } else if (complaint.status === 'Đã duyệt') {
+        statusText = 'Đã duyệt';
+        statusClass = 'approved';
+      } else {
+        statusText = 'Không duyệt';
+        statusClass = 'rejected';
+      }
+      
+      // Format ngày tháng
+      let formattedDate = '';
+      try {
+        // Nếu complaint_date là định dạng DD-MM-YYYY
+        if (complaint.complaint_date && complaint.complaint_date.includes('-')) {
+          const parts = complaint.complaint_date.split('-');
+          // Kiểm tra xem có phải định dạng DD-MM-YYYY không
+          if (parts.length === 3 && parts[0].length <= 2) {
+            // Chuyển thành MM/DD/YYYY cho đối tượng Date
+            const date = new Date(`${parts[1]}/${parts[0]}/${parts[2]}`);
+            formattedDate = date.toLocaleDateString('vi-VN');
+          } else {
+            // Nếu là định dạng YYYY-MM-DD
+            const date = new Date(complaint.complaint_date);
+            formattedDate = date.toLocaleDateString('vi-VN');
+          }
+        } else {
+          // Nếu là định dạng khác, thử chuyển đổi trực tiếp
+          const date = new Date(complaint.complaint_date);
+          formattedDate = date.toLocaleDateString('vi-VN');
+        }
+      } catch (e) {
+        console.error('Lỗi khi format ngày tháng:', e);
+        formattedDate = complaint.complaint_date || 'Không rõ';
+      }
+      
+      const row = document.createElement('tr');
+      row.setAttribute('data-id', complaint.id);
+      row.innerHTML = `
+        <td>${complaint.id}</td>
+        <td>${complaint.employee_name || 'Không rõ'}</td>
+        <td>${formattedDate}</td>
+        <td>${complaint.reason || 'Không rõ'}</td>
+        <td class="status ${statusClass}">${statusText}</td>
+        <td>
+          <button class="btn btn-view" onclick="viewComplaintDetail(${complaint.id})">Xem chi tiết</button>
+        </td>
+      `;
+      
+      complaintsList.appendChild(row);
+    });
+    
+    // Cập nhật số lượng hiển thị
+    const countElement = document.getElementById('complaints-count');
+    if (countElement) {
+      countElement.textContent = `Hiển thị ${displayData.length} / ${currentComplaintsData.length} khiếu nại`;
+    }
+  } catch (error) {
+    console.error('Lỗi khi hiển thị trang khiếu nại:', error);
+    const complaintsList = document.getElementById('complaints-list');
+    if (complaintsList) {
+      complaintsList.innerHTML = '<tr><td colspan="7" class="error-message">Lỗi khi hiển thị dữ liệu: ' + error.message + '</td></tr>';
+    }
+  }
+}
+
+// Tạo phân trang cho danh sách khiếu nại
+function createComplaintsPagination() {
+  const totalPages = Math.ceil(currentComplaintsData.length / itemsPerPage);
   const paginationContainer = document.getElementById('complaints-pagination');
   paginationContainer.innerHTML = '';
   
-  if (totalPages <= 1) return;
-  
-  // Tạo nút Previous
-  if (currentPage > 1) {
-    const prevButton = document.createElement('button');
-    prevButton.classList.add('pagination-button');
-    prevButton.innerHTML = '&laquo; Trước';
-    prevButton.addEventListener('click', () => {
-      complaintsPage = currentPage - 1;
-      displayComplaintsPage(complaintsPage, isFiltered ? filterComplaints(false) : null);
-      createComplaintsPagination(complaintsPage, totalPages, isFiltered);
-    });
-    paginationContainer.appendChild(prevButton);
-  }
-  
-  // Tạo các nút số trang
-  const startPage = Math.max(1, currentPage - 2);
-  const endPage = Math.min(totalPages, startPage + 4);
-  
-  for (let i = startPage; i <= endPage; i++) {
-    const pageButton = document.createElement('button');
-    pageButton.classList.add('pagination-button');
-    if (i === currentPage) {
-      pageButton.classList.add('active');
-    }
-    pageButton.textContent = i;
-    pageButton.addEventListener('click', () => {
-      complaintsPage = i;
-      displayComplaintsPage(complaintsPage, isFiltered ? filterComplaints(false) : null);
-      createComplaintsPagination(complaintsPage, totalPages, isFiltered);
-    });
-    paginationContainer.appendChild(pageButton);
-  }
-  
-  // Tạo nút Next
-  if (currentPage < totalPages) {
-    const nextButton = document.createElement('button');
-    nextButton.classList.add('pagination-button');
-    nextButton.innerHTML = 'Sau &raquo;';
-    nextButton.addEventListener('click', () => {
-      complaintsPage = currentPage + 1;
-      displayComplaintsPage(complaintsPage, isFiltered ? filterComplaints(false) : null);
-      createComplaintsPagination(complaintsPage, totalPages, isFiltered);
-    });
-    paginationContainer.appendChild(nextButton);
-  }
-}
-
-// Lọc dữ liệu khiếu nại
-function filterComplaints(updateDisplay = true) {
-  const searchText = document.getElementById('complaints-search').value.trim().toLowerCase();
-  const fromDate = document.getElementById('complaints-date-from').value;
-  const toDate = document.getElementById('complaints-date-to').value;
-  const statusFilter = document.getElementById('complaint-status-filter').value;
-  
-  const filteredData = allComplaintsData.filter(complaint => {
-    // Lọc theo tìm kiếm
-    const matchesSearch = !searchText || 
-      (complaint.employee_id && complaint.employee_id.toString().toLowerCase().includes(searchText)) ||
-      (complaint.employee_name && complaint.employee_name.toLowerCase().includes(searchText));
-    
-    // Lọc theo ngày
-    const complaintDate = complaint.complaint_date;
-    const matchesFromDate = !fromDate || (complaintDate && complaintDate >= fromDate);
-    const matchesToDate = !toDate || (complaintDate && complaintDate <= toDate);
-    
-    // Lọc theo trạng thái
-    let matchesStatus = true;
-    if (statusFilter !== 'all') {
-      if (statusFilter === 'pending') {
-        matchesStatus = complaint.status === 'Chưa xử lý' || !complaint.processed;
-      } else if (statusFilter === 'approved') {
-        matchesStatus = complaint.status === 'Đã duyệt';
-      } else if (statusFilter === 'rejected') {
-        matchesStatus = complaint.status === 'Không duyệt';
-      }
-    }
-    
-    return matchesSearch && matchesFromDate && matchesToDate && matchesStatus;
-  });
-  
-  if (updateDisplay) {
-    complaintsPage = 1;
-    displayComplaintsPage(complaintsPage, filteredData);
-    createComplaintsPagination(complaintsPage, Math.ceil(filteredData.length / complaintsPerPage), true);
-  }
-  
-  return filteredData;
-}
-
-// Reset bộ lọc khiếu nại
-function resetComplaintsFilter() {
-  document.getElementById('complaints-search').value = '';
-  document.getElementById('complaints-date-from').value = '';
-  document.getElementById('complaints-date-to').value = '';
-  document.getElementById('complaint-status-filter').value = 'all';
-  
-  complaintsPage = 1;
-  displayComplaintsPage(complaintsPage);
-  createComplaintsPagination(complaintsPage, Math.ceil(allComplaintsData.length / complaintsPerPage), false);
-}
-
-// Hiển thị chi tiết khiếu nại
-async function showComplaintDetail(complaintId) {
-  try {
-    currentComplaintId = complaintId;
-    console.log('Hiển thị chi tiết khiếu nại ID:', complaintId);
-    
-    const complaint = allComplaintsData.find(item => item.id === Number(complaintId) || item.id === complaintId);
-    if (complaint) {
-      console.log('Thông tin khiếu nại:', complaint);
-      
-      // Đảm bảo modal tồn tại
-      const modalElement = ensureComplaintModalExists();
-      
-      // Cập nhật nội dung modal - kiểm tra từng phần tử tồn tại trước khi cập nhật
-      const setTextIfElementExists = (id, value) => {
-        const element = document.getElementById(id);
-        if (element) {
-          element.textContent = value || '';
-        } else {
-          console.warn(`Phần tử #${id} không tồn tại trong DOM`);
-        }
-      };
-      
-      setTextIfElementExists('detail-employee-id', complaint.employee_id);
-      setTextIfElementExists('detail-employee-name', complaint.employee_name);
-      setTextIfElementExists('detail-complaint-date', complaint.complaint_date);
-      setTextIfElementExists('detail-complaint-time', complaint.complaint_time);
-      setTextIfElementExists('detail-reason', complaint.reason);
-      setTextIfElementExists('detail-status', complaint.processed ? complaint.status : 'Chưa xử lý');
-      
-      // Hiển thị ảnh khiếu nại nếu có
-      const imageElement = document.getElementById('detail-complaint-image');
-      if (imageElement) {
-        if (complaint.image_path) {
-          imageElement.src = '/' + complaint.image_path;
-          imageElement.style.display = 'block';
-        } else {
-          imageElement.style.display = 'none';
-        }
-      }
-      
-      // Cập nhật trạng thái nút duyệt/không duyệt
-      const approveBtn = document.getElementById('approve-complaint');
-      const rejectBtn = document.getElementById('reject-complaint');
-      
-      if (approveBtn && rejectBtn) {
-        if (complaint.processed) {
-          approveBtn.disabled = true;
-          rejectBtn.disabled = true;
-          
-          if (complaint.status === 'Đã duyệt' || complaint.status === 'Đã xử lý') {
-            approveBtn.classList.add('disabled');
-            rejectBtn.classList.remove('disabled');
-          } else if (complaint.status === 'Không duyệt') {
-            approveBtn.classList.remove('disabled');
-            rejectBtn.classList.add('disabled');
-          }
-        } else {
-          approveBtn.disabled = false;
-          rejectBtn.disabled = false;
-          approveBtn.classList.remove('disabled');
-          rejectBtn.classList.remove('disabled');
-        }
-      }
-      
-      // Hiển thị modal và thêm class cho body
-      modalElement.style.display = 'block';
-      document.body.classList.add('modal-open');
-    } else {
-      console.error('Không tìm thấy thông tin chi tiết khiếu nại ID:', complaintId);
-      Swal.fire({
-        title: 'Lỗi!',
-        text: 'Không thể tải thông tin chi tiết khiếu nại',
-        icon: 'error',
-        confirmButtonColor: '#3085d6',
-        confirmButtonText: 'Đóng'
-      });
-    }
-  } catch (error) {
-    console.error('Lỗi khi tải chi tiết khiếu nại:', error);
-    Swal.fire({
-      title: 'Lỗi!',
-      text: 'Đã xảy ra lỗi khi tải thông tin chi tiết: ' + error.message,
-      icon: 'error',
-      confirmButtonColor: '#3085d6',
-      confirmButtonText: 'Đóng'
-    });
-  }
-}
-
-// Xử lý duyệt/không duyệt khiếu nại
-async function processComplaint(action) {
-  try {
-    console.log('Đang xử lý khiếu nại ID:', currentComplaintId, 'Hành động:', action);
-    
-    if (!currentComplaintId) {
-      throw new Error('Không tìm thấy ID khiếu nại');
-    }
-    
-    const complaint = allComplaintsData.find(c => c.id === currentComplaintId);
-    if (!complaint) {
-      throw new Error('Không tìm thấy thông tin khiếu nại');
-    }
-    
-    // Chuẩn bị dữ liệu gửi lên server
-    const data = {
-      complaint_id: currentComplaintId,
-      action: action,
-      employee_id: complaint.employee_id,
-      complaint_date: complaint.complaint_date,
-      complaint_time: complaint.complaint_time
-    };
-    
-    // Hiển thị thông báo đang xử lý
-    Swal.fire({
-      title: 'Đang xử lý...',
-      text: 'Vui lòng chờ trong giây lát',
-      allowOutsideClick: false,
-      allowEscapeKey: false,
-      showConfirmButton: false,
-      didOpen: () => {
-        Swal.showLoading();
-      }
-    });
-    
-    try {
-      const response = await fetch('/api/process_complaint', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-      });
-      
-      if (!response.ok) {
-        if (response.status === 404) {
-          console.log('API chưa được triển khai, mô phỏng xử lý thành công');
-          // Mô phỏng xử lý thành công
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Cập nhật trạng thái trong dữ liệu local
-          const complaintIndex = allComplaintsData.findIndex(c => c.id === currentComplaintId);
-          if (complaintIndex !== -1) {
-            allComplaintsData[complaintIndex].processed = true;
-            allComplaintsData[complaintIndex].status = action === 'approve' ? 'Đã duyệt' : 'Không duyệt';
-          }
-          
-          // Đóng modal
-          const modal = document.getElementById('complaint-detail-modal');
-          if (modal) {
-            modal.style.display = 'none';
-            document.body.classList.remove('modal-open');
-          }
-          
-          // Hiển thị thông báo thành công
-          await Swal.fire({
-            icon: 'success',
-            title: 'Thành công!',
-            text: action === 'approve' ? 'Đã duyệt khiếu nại' : 'Đã từ chối khiếu nại',
-            timer: 2000,
-            showConfirmButton: false
-          });
-          
-          // Tải lại danh sách khiếu nại
-          await loadComplaints();
-          return;
-        }
-        throw new Error(`API trả về lỗi: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      
-      // Đóng modal
-      const modal = document.getElementById('complaint-detail-modal');
-      if (modal) {
-        modal.style.display = 'none';
-        document.body.classList.remove('modal-open');
-      }
-      
-      // Hiển thị thông báo thành công
-      await Swal.fire({
-        icon: 'success',
-        title: 'Thành công!',
-        text: action === 'approve' ? 'Đã duyệt khiếu nại' : 'Đã từ chối khiếu nại',
-        timer: 2000,
-        showConfirmButton: false
-      });
-      
-      // Tải lại danh sách khiếu nại
-      await loadComplaints();
-      
-    } catch (error) {
-      console.error('Lỗi khi gọi API:', error);
-      throw new Error('Có lỗi xảy ra khi xử lý khiếu nại');
-    }
-  } catch (error) {
-    console.error('Lỗi:', error);
-    Swal.fire({
-      icon: 'error',
-      title: 'Lỗi!',
-      text: error.message || 'Có lỗi xảy ra khi xử lý khiếu nại'
-    });
-  }
-}
-
-// ... existing code ...
-
-// Tải dữ liệu khi chuyển tab
-function setupTabs() {
-  const tabs = document.querySelectorAll('.tab');
-  const tabPanes = document.querySelectorAll('.tab-pane');
-
-  // Chuyển đổi tab khi click
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const targetTab = tab.dataset.tab;
-      
-      // Xóa active khỏi tất cả tabs và panes
-      tabs.forEach(t => t.classList.remove('active'));
-      tabPanes.forEach(p => p.classList.remove('active'));
-      
-      // Thêm active cho tab được chọn
-      tab.classList.add('active');
-      document.getElementById(`${targetTab}-pane`).classList.add('active');
-      
-      // Tải dữ liệu tương ứng với tab được chọn
-      if (targetTab === 'employees') {
-        // Tải dữ liệu nhân viên nếu chưa tải
-        if (document.querySelector('#employee-list tr') === null) {
-          loadEmployees();
-        }
-      } else if (targetTab === 'shifts') {
-        // Tải dữ liệu ca làm việc nếu chưa tải
-        if (document.querySelector('#shifts-list tr') === null) {
-          loadShifts();
-        }
-      } else if (targetTab === 'attendance') {
-        // Tải dữ liệu chấm công nếu chưa tải
-        if (document.querySelector('#attendance-list tr') === null) {
-          loadAttendance();
-        }
-      } else if (targetTab === 'complaints') {
-        // Tải dữ liệu khiếu nại nếu chưa tải
-        if (allComplaintsData.length === 0) {
-          loadComplaints();
-        }
-      }
-    });
-  });
-}
-
-// ... existing code ...
-
-// Hàm hiển thị trang điểm danh
-function displayAttendancePage(page) {
-  const attendanceList = document.getElementById('attendance-list');
-  attendanceList.innerHTML = '';
-  
-  if (currentAttendanceData.length === 0) {
-    attendanceList.innerHTML = '<tr><td colspan="10" class="no-data">Không có dữ liệu chấm công</td></tr>';
+  if (totalPages <= 1) {
     return;
   }
   
-  // Tính toán chỉ số bắt đầu và kết thúc
-  const startIndex = (page - 1) * attendancePerPage;
-  const endIndex = Math.min(startIndex + attendancePerPage, currentAttendanceData.length);
-  
-  // Lấy dữ liệu cho trang hiện tại
-  const currentPageData = currentAttendanceData.slice(startIndex, endIndex);
-  
-  // Hiển thị dữ liệu
-  currentPageData.forEach(item => {
-    const row = document.createElement('tr');
-    
-    // Xác định trạng thái
-    let statusClass = '';
-    if (item.note === 'Check in muộn & Check out sớm') {
-      statusClass = 'lateearly';
-    } else if (item.note === 'Check in muộn') {
-      statusClass = 'late';
-    } else if (item.note === 'Check out sớm') {
-      statusClass = 'early';
-    } else if (item.note === 'Máy chấm công lỗi') {
-      statusClass = 'error';
-    }
-    
-    row.innerHTML = `
-      <td>${item.date}</td>
-      <td>${item.id}</td>
-      <td>${item.name}</td>
-      <td>${item.checkIn1} - ${item.checkOut1}</td>
-      <td>${item.checkIn2} - ${item.checkOut2}</td>
-      <td>${item.lateMinutes} phút</td>
-      <td>${item.earlyMinutes} phút</td>
-      <td>${item.workHours.toFixed(2)} giờ</td>
-      <td>${item.shiftCount}</td>
-      <td class="${statusClass}">${item.note}</td>
-    `;
-    
-    attendanceList.appendChild(row);
-  });
-}
-
-// Hàm tạo nút phân trang cho bảng chấm công
-function createAttendancePagination() {
-  const paginationContainer = document.getElementById('attendance-pagination');
-  paginationContainer.innerHTML = '';
-  
-  const totalPages = Math.ceil(currentAttendanceData.length / attendancePerPage);
-  
-  if (totalPages <= 1) return;
-  
-  // Tạo nút Previous
-  if (attendancePage > 1) {
+  // Tạo nút previous
+  if (complaintsPage > 1) {
     const prevButton = document.createElement('button');
-    prevButton.classList.add('pagination-button');
-    prevButton.innerHTML = '&laquo; Trước';
+    prevButton.textContent = 'Trước';
+    prevButton.className = 'pagination-btn';
     prevButton.addEventListener('click', () => {
-      attendancePage--;
-      displayAttendancePage(attendancePage);
-      createAttendancePagination();
+      complaintsPage--;
+      displayComplaintsPage(complaintsPage);
+      createComplaintsPagination();
     });
     paginationContainer.appendChild(prevButton);
   }
   
   // Tạo các nút số trang
-  const startPage = Math.max(1, attendancePage - 2);
+  const startPage = Math.max(1, complaintsPage - 2);
   const endPage = Math.min(totalPages, startPage + 4);
   
   for (let i = startPage; i <= endPage; i++) {
     const pageButton = document.createElement('button');
-    pageButton.classList.add('pagination-button');
-    if (i === attendancePage) {
+    pageButton.textContent = i;
+    pageButton.className = 'pagination-btn';
+    if (i === complaintsPage) {
       pageButton.classList.add('active');
     }
-    pageButton.textContent = i;
+    
     pageButton.addEventListener('click', () => {
-      attendancePage = i;
-      displayAttendancePage(attendancePage);
-      createAttendancePagination();
+      complaintsPage = i;
+      displayComplaintsPage(complaintsPage);
+      createComplaintsPagination();
     });
+    
     paginationContainer.appendChild(pageButton);
   }
   
-  // Tạo nút Next
-  if (attendancePage < totalPages) {
+  // Tạo nút next
+  if (complaintsPage < totalPages) {
     const nextButton = document.createElement('button');
-    nextButton.classList.add('pagination-button');
-    nextButton.innerHTML = 'Sau &raquo;';
+    nextButton.textContent = 'Sau';
+    nextButton.className = 'pagination-btn';
     nextButton.addEventListener('click', () => {
-      attendancePage++;
-      displayAttendancePage(attendancePage);
-      createAttendancePagination();
+      complaintsPage++;
+      displayComplaintsPage(complaintsPage);
+      createComplaintsPagination();
     });
     paginationContainer.appendChild(nextButton);
   }
 }
-
-// ... existing code ...
 
 // Hàm hiển thị thông báo lỗi
 function showError(message) {
@@ -2357,8 +2180,6 @@ function hideError() {
     errorMessage.style.display = 'none';
   }
 }
-
-// ... existing code ...
 
 // Thêm sự kiện cho nút áp dụng bộ lọc thống kê
 document.addEventListener('DOMContentLoaded', function() {
@@ -2390,14 +2211,15 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-// ... existing code ...
-
 // Hàm kiểm tra và tạo modal chi tiết khiếu nại nếu cần
 function ensureComplaintModalExists() {
   let modalElement = document.getElementById('complaint-detail-modal');
   
   if (!modalElement) {
     console.log('Modal chi tiết khiếu nại không tồn tại, đang tạo mới...');
+    
+    const modalContent = document.createElement('div');
+    modalContent.className = 'modal-content';
     
     modalElement = document.createElement('div');
     modalElement.id = 'complaint-detail-modal';
@@ -2503,8 +2325,424 @@ function ensureComplaintModalExists() {
     rejectButton.addEventListener('click', () => processComplaint('reject'));
     
     document.body.appendChild(modalElement);
-    console.log('Đã tạo mới modal chi tiết khiếu nại');
   }
   
   return modalElement;
+}
+
+// Xem chi tiết khiếu nại
+async function viewComplaintDetail(complaintId) {
+  try {
+    console.log('Xem chi tiết khiếu nại ID:', complaintId);
+    
+    // Lưu ID khiếu nại đang xem
+    currentComplaintId = complaintId;
+    
+    // Tìm thông tin khiếu nại
+    const complaint = allComplaintsData.find(item => item.id == complaintId);
+    
+    if (!complaint) {
+      throw new Error('Không tìm thấy thông tin khiếu nại');
+    }
+    
+    // Kiểm tra xem modal đã tồn tại chưa
+    let modal = document.getElementById('complaint-detail-modal');
+    
+    // Nếu modal chưa tồn tại, tạo mới
+    if (!modal) {
+      console.log('Tạo modal chi tiết khiếu nại');
+      
+      // Tạo phần tử modal
+      modal = document.createElement('div');
+      modal.id = 'complaint-detail-modal';
+      modal.className = 'modal';
+      
+      // Tạo nội dung modal
+      const modalContent = document.createElement('div');
+      modalContent.className = 'modal-content';
+      
+      // Tạo nội dung HTML cho modal
+      modalContent.innerHTML = `
+        <span class="close" id="close-complaint-modal">&times;</span>
+        <h2>Chi tiết khiếu nại</h2>
+        
+        <div class="modal-body">
+          <div class="detail-row">
+            <div class="detail-label">Mã nhân viên:</div>
+            <div class="detail-value" id="detail-employee-id"></div>
+          </div>
+          
+          <div class="detail-row">
+            <div class="detail-label">Tên nhân viên:</div>
+            <div class="detail-value" id="detail-employee-name"></div>
+          </div>
+          
+          <div class="detail-row">
+            <div class="detail-label">Ngày khiếu nại:</div>
+            <div class="detail-value" id="detail-complaint-date"></div>
+          </div>
+          
+          <div class="detail-row">
+            <div class="detail-label">Thời gian:</div>
+            <div class="detail-value" id="detail-complaint-time"></div>
+          </div>
+          
+          <div class="detail-row">
+            <div class="detail-label">Lý do:</div>
+            <div class="detail-value" id="detail-reason"></div>
+          </div>
+          
+          <div class="detail-row">
+            <div class="detail-label">Trạng thái:</div>
+            <div class="detail-value" id="detail-status"></div>
+          </div>
+          
+          <div class="detail-image-container">
+            <img id="detail-complaint-image" src="" alt="Ảnh khiếu nại">
+          </div>
+          
+          <div class="action-buttons">
+            <button id="approve-complaint" class="btn btn-approve">Duyệt khiếu nại</button>
+            <button id="reject-complaint" class="btn btn-reject">Không duyệt</button>
+          </div>
+        </div>
+      `;
+      
+      // Thêm modal vào body
+      modal.appendChild(modalContent);
+      document.body.appendChild(modal);
+      
+      // Thêm sự kiện đóng modal
+      document.getElementById('close-complaint-modal').addEventListener('click', () => {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+      });
+      
+      // Thêm sự kiện cho nút duyệt và không duyệt
+      document.getElementById('approve-complaint').addEventListener('click', () => {
+        processComplaint('approve');
+      });
+      
+      document.getElementById('reject-complaint').addEventListener('click', () => {
+        processComplaint('reject');
+      });
+    }
+    
+    // Cập nhật thông tin vào modal
+    document.getElementById('detail-employee-id').textContent = complaint.employee_id || 'Không có';
+    document.getElementById('detail-employee-name').textContent = complaint.employee_name || 'Không có';
+    
+    // Format ngày tháng
+    const date = new Date(complaint.complaint_date);
+    document.getElementById('detail-complaint-date').textContent = date.toLocaleDateString('vi-VN');
+    document.getElementById('detail-complaint-time').textContent = complaint.complaint_time || 'Không có';
+    document.getElementById('detail-reason').textContent = complaint.reason || 'Không có';
+    
+    // Cập nhật trạng thái
+    let statusText;
+    if (!complaint.processed) {
+      statusText = 'Chờ duyệt';
+    } else if (complaint.status === 'Đã duyệt') {
+      statusText = 'Đã duyệt';
+    } else {
+      statusText = 'Không duyệt';
+    }
+    document.getElementById('detail-status').textContent = statusText;
+    
+    // Cập nhật ảnh
+    const imageElement = document.getElementById('detail-complaint-image');
+    if (complaint.image_path) {
+      imageElement.src = '/api/complaint_image?path=' + complaint.image_path;
+      imageElement.style.display = 'block';
+    } else {
+      imageElement.style.display = 'none';
+    }
+    
+    // Hiển thị hoặc ẩn nút duyệt/không duyệt dựa trên trạng thái
+    const approveBtn = document.getElementById('approve-complaint');
+    const rejectBtn = document.getElementById('reject-complaint');
+    
+    if (complaint.processed) {
+      // Nếu đã xử lý thì disable các nút
+      approveBtn.disabled = true;
+      rejectBtn.disabled = true;
+    } else {
+      // Nếu chưa xử lý thì enable các nút
+      approveBtn.disabled = false;
+      rejectBtn.disabled = false;
+    }
+    
+    // Hiển thị modal
+    modal.style.display = 'block';
+    document.body.classList.add('modal-open');
+    
+  } catch (error) {
+    console.error('Lỗi khi hiển thị chi tiết khiếu nại:', error);
+    alert('Lỗi: ' + error.message);
+  }
+}
+
+// Lọc danh sách khiếu nại
+function filterComplaints() {
+  try {
+    // Lấy giá trị các bộ lọc
+    const searchText = document.getElementById('complaint-search')?.value?.trim() || '';
+    const statusFilter = document.getElementById('complaint-status-filter')?.value || 'all';
+    const reasonFilter = document.getElementById('complaint-reason-filter')?.value || 'all';
+    
+    console.log('Đang lọc khiếu nại với điều kiện:', {
+      searchText,
+      statusFilter,
+      reasonFilter
+    });
+    
+    // Kiểm tra xem có dữ liệu để lọc không
+    if (!allComplaintsData || allComplaintsData.length === 0) {
+      console.warn('Không có dữ liệu khiếu nại để lọc');
+      document.getElementById('complaints-list').innerHTML = 
+        '<tr><td colspan="6" class="no-data">Không có khiếu nại nào</td></tr>';
+      document.getElementById('complaints-pagination').innerHTML = '';
+      return;
+    }
+    
+    // Lọc dữ liệu
+    let filteredData = [...allComplaintsData];
+    
+    if (searchText) {
+      filteredData = filteredData.filter(item => {
+        const idMatch = item.id && item.id.toString().includes(searchText);
+        const nameMatch = item.employee_name && item.employee_name.toLowerCase().includes(searchText.toLowerCase());
+        return idMatch || nameMatch;
+      });
+    }
+    
+    if (statusFilter !== 'all') {
+      filteredData = filteredData.filter(item => {
+        if (statusFilter === 'pending') return !item.processed;
+        if (statusFilter === 'approved') return item.processed && item.status === 'Đã duyệt';
+        if (statusFilter === 'rejected') return item.processed && item.status === 'Không duyệt';
+        return true;
+      });
+    }
+    
+    if (reasonFilter !== 'all') {
+      filteredData = filteredData.filter(item => {
+        return item.reason === reasonFilter;
+      });
+    }
+    
+    console.log(`Lọc từ ${allComplaintsData.length} khiếu nại xuống còn ${filteredData.length} khiếu nại`);
+    
+    // Cập nhật dữ liệu hiện tại
+    currentComplaintsData = filteredData;
+    complaintsPage = 1;
+    
+    // Hiển thị dữ liệu
+    displayComplaintsPage(complaintsPage);
+    createComplaintsPagination();
+  } catch (error) {
+    console.error('Lỗi khi lọc danh sách khiếu nại:', error);
+    alert('Có lỗi xảy ra khi lọc danh sách khiếu nại: ' + error.message);
+  }
+}
+
+// Reset bộ lọc khiếu nại
+function resetComplaintFilters() {
+  document.getElementById('complaint-search').value = '';
+  document.getElementById('complaint-status-filter').value = 'all';
+  document.getElementById('complaint-reason-filter').value = 'all';
+  
+  console.log('Đã reset bộ lọc khiếu nại');
+  
+  // Khôi phục dữ liệu ban đầu
+  currentComplaintsData = [...allComplaintsData];
+  complaintsPage = 1;
+  
+  // Hiển thị lại dữ liệu
+  displayComplaintsPage(complaintsPage);
+  createComplaintsPagination();
+}
+
+// Xử lý duyệt/không duyệt khiếu nại
+async function processComplaint(action) {
+  try {
+    console.log('Đang xử lý khiếu nại ID:', currentComplaintId, 'Hành động:', action);
+    
+    if (!currentComplaintId) {
+      throw new Error('Không tìm thấy ID khiếu nại');
+    }
+    
+    const complaint = allComplaintsData.find(c => c.id === currentComplaintId);
+    if (!complaint) {
+      throw new Error('Không tìm thấy thông tin khiếu nại');
+    }
+    
+    // Chuẩn bị dữ liệu gửi lên server
+    const data = {
+      complaint_id: currentComplaintId,
+      action: action,
+      employee_id: complaint.employee_id,
+      complaint_date: complaint.complaint_date,
+      complaint_time: complaint.complaint_time
+    };
+    
+    // Hiển thị trạng thái xử lý
+    const approveBtn = document.getElementById('approve-complaint');
+    const rejectBtn = document.getElementById('reject-complaint');
+    
+    if (approveBtn) approveBtn.disabled = true;
+    if (rejectBtn) rejectBtn.disabled = true;
+    
+    try {
+      const response = await fetch('/api/complaint/process', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API trả về lỗi: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('Kết quả xử lý khiếu nại:', result);
+      
+      // Đóng modal
+      const modal = document.getElementById('complaint-detail-modal');
+      if (modal) {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+      }
+      
+      // Cập nhật dữ liệu local
+      const complaintIndex = allComplaintsData.findIndex(c => c.id === currentComplaintId);
+      if (complaintIndex !== -1) {
+        allComplaintsData[complaintIndex].processed = true;
+        allComplaintsData[complaintIndex].status = action === 'approve' ? 'Đã duyệt' : 'Không duyệt';
+      }
+      
+      // Hiển thị thông báo thành công
+      alert(action === 'approve' ? 'Đã duyệt khiếu nại thành công!' : 'Đã từ chối khiếu nại!');
+      
+      // Tải lại danh sách khiếu nại
+      await loadComplaints();
+      
+    } catch (error) {
+      console.error('Lỗi khi gọi API:', error);
+      throw new Error('Có lỗi xảy ra khi xử lý khiếu nại');
+    } finally {
+      // Khôi phục trạng thái nút
+      if (approveBtn) approveBtn.disabled = false;
+      if (rejectBtn) rejectBtn.disabled = false;
+    }
+  } catch (error) {
+    console.error('Lỗi:', error);
+    alert('Lỗi: ' + (error.message || 'Có lỗi xảy ra khi xử lý khiếu nại'));
+  }
+}
+
+// Thiết lập tabs
+function setupTabs() {
+  const tabs = document.querySelectorAll('.tab');
+  const tabPanes = document.querySelectorAll('.tab-pane');
+  
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      console.log('Tab clicked:', tab.getAttribute('data-tab'));
+      
+      // Xóa active từ tất cả tabs và panes
+      tabs.forEach(t => t.classList.remove('active'));
+      tabPanes.forEach(p => p.classList.remove('active'));
+      
+      // Thêm active cho tab được chọn
+      tab.classList.add('active');
+      const targetTabId = `${tab.getAttribute('data-tab')}-pane`;
+      const targetPane = document.getElementById(targetTabId);
+      
+      if (targetPane) {
+        targetPane.classList.add('active');
+        
+        // Tải dữ liệu dựa vào tab được chọn
+        const tabName = tab.getAttribute('data-tab');
+        
+        if (tabName === 'employees') {
+          loadEmployees();
+        } else if (tabName === 'attendance') {
+          loadAttendance();
+        } else if (tabName === 'complaints') {
+          loadComplaints();
+        } else if (tabName === 'statistics') {
+          loadStatisticsCharts();
+        } else if (tabName === 'shifts') {
+          loadShiftConfig();
+        }
+      } else {
+        console.error('Tab pane not found:', targetTabId);
+      }
+    });
+  });
+}
+
+/**
+ * Tải cấu hình ca làm việc từ server
+ */
+async function loadShiftConfig() {
+  try {
+    const response = await fetch('/api/shift/config');
+    
+    if (!response.ok) {
+      throw new Error(`API trả về lỗi: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    console.log('Cấu hình ca làm việc:', result);
+    
+    if (!result.success) {
+      throw new Error(result.message || 'Không thể tải cấu hình ca làm việc');
+    }
+    
+    // Lưu cấu hình vào biến toàn cục
+    shiftsConfig = result.data;
+    
+    // Cập nhật giao diện với dữ liệu mới
+    if (shiftsConfig) {
+      // Hiển thị thông tin ca hiện tại
+      const shift1 = shiftsConfig.shift1;
+      const shift2 = shiftsConfig.shift2;
+      
+      if (shift1 && shift2) {
+        // Cập nhật hiển thị trong thẻ card
+        const currentShift1 = document.getElementById('current-shift1');
+        const currentShift2 = document.getElementById('current-shift2');
+        
+        if (currentShift1) {
+          currentShift1.textContent = `${shift1.checkIn} - ${shift1.checkOut}`;
+        }
+        
+        if (currentShift2) {
+          currentShift2.textContent = `${shift2.checkIn} - ${shift2.checkOut}`;
+        }
+        
+        // Cập nhật giá trị trong form
+        document.getElementById('shift1-start').value = shift1.checkIn;
+        document.getElementById('shift1-end').value = shift1.checkOut;
+        document.getElementById('shift2-start').value = shift2.checkIn;
+        document.getElementById('shift2-end').value = shift2.checkOut;
+        
+        // Cập nhật thời gian cập nhật cuối
+        const lastUpdatedTime = document.getElementById('last-updated-time');
+        if (lastUpdatedTime) {
+          const now = new Date();
+          lastUpdatedTime.textContent = now.toLocaleString('vi-VN');
+        }
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Lỗi khi tải cấu hình ca làm việc:', error);
+    return false;
+  }
 }

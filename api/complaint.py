@@ -3,11 +3,29 @@ from database import Complaint, session, Employee, Attendance, Shift
 from fastapi import APIRouter
 from tools import checkin
 from camera import generate_complaint_camera
+from pydantic import BaseModel
+from typing import Optional
+import os
+from datetime import datetime
+from fastapi.responses import FileResponse
+
+class ComplaintProcessRequest(BaseModel):
+    complaint_id: int
+    action: str  # 'approve' hoặc 'reject'
+    employee_id: Optional[int] = None
+    complaint_date: Optional[str] = None
+    complaint_time: Optional[str] = None
 
 router = APIRouter()
 
 @router.get("/complaint_image", tags=["Complaint"])
-async def get_complaint_image():
+async def get_complaint_image(path: str = None):
+    if path:
+        # Trả về ảnh từ đường dẫn
+        if os.path.exists(path):
+            return FileResponse(path)
+    
+    # Nếu không có path hoặc file không tồn tại, trả về ảnh mặc định
     return {"image": generate_complaint_camera()}
 
 @router.post("/complaint", tags=["Complaint"])
@@ -16,16 +34,43 @@ async def add_complaint(
     employee_id: int = Form(...),
     reason: str = Form(...)
 ):
-    image_bytes = await image.read()
-    complaint = Complaint(employee_id=employee_id, reason=reason, image=image_bytes)
-    session.add(complaint)
-    session.commit()
-    session.refresh(complaint)
-    return {
-        "id": complaint.id,
-        "created_at": complaint.created_at.isoformat(),
-        "reason": complaint.reason
-    }
+    try:
+        # Lưu ảnh vào thư mục uploads
+        content = await image.read()
+        
+        # Tạo thư mục uploads nếu chưa tồn tại
+        if not os.path.exists("static/uploads"):
+            os.makedirs("static/uploads")
+            
+        # Tạo tên file duy nhất
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        filename = f"complaint_{employee_id}_{timestamp}.jpg"
+        filepath = f"static/uploads/{filename}"
+        
+        # Lưu file
+        with open(filepath, "wb") as f:
+            f.write(content)
+            
+        # Tạo complaint với đường dẫn ảnh
+        complaint = Complaint(
+            employee_id=employee_id, 
+            reason=reason, 
+            image_path=filepath
+        )
+        
+        session.add(complaint)
+        session.commit()
+        session.refresh(complaint)
+        
+        return {
+            "id": complaint.id,
+            "created_at": complaint.created_at.isoformat(),
+            "reason": complaint.reason,
+            "image_path": complaint.image_path
+        }
+    except Exception as e:
+        session.rollback()
+        return {"success": False, "message": f"Lỗi khi thêm khiếu nại: {str(e)}"}
 
 @router.get("/complaint", tags=["Complaint"])
 async def get_complaints():
@@ -49,7 +94,7 @@ async def get_complaints():
                 "complaint_date": complaint_date,
                 "complaint_time": complaint_time,
                 "reason": complaint.reason,
-                "image_path": complaint.image,
+                "image_path": complaint.image_path,
                 "status": "Đã duyệt" if complaint.processed else "Chưa duyệt",
                 "processed": complaint.processed
             })
@@ -91,7 +136,7 @@ async def get_complaint_detail(complaint_id: int):
                 "complaint_date": complaint_date,
                 "complaint_time": complaint_time,
                 "reason": complaint.reason,
-                "image_path": complaint.image,
+                "image_path": complaint.image_path,
                 "status": "Đã duyệt" if complaint.processed else "Chưa duyệt",
                 "processed": complaint.processed
             }
@@ -102,17 +147,16 @@ async def get_complaint_detail(complaint_id: int):
             "message": f"Lỗi khi lấy chi tiết khiếu nại: {str(e)}"
         }
         
-@router.post("/complaints/{complaint_id}/process", tags=["Complaint"])
-async def process_complaint(
-    complaint_id: int = Path(...),
-    approved: bool = Form(...),
-):
-    """API xử lý khiếu nại (duyệt hoặc từ chối)"""
+@router.post("/complaint/process", tags=["Complaint"])
+async def process_complaint_json(request: ComplaintProcessRequest):
+    """API xử lý khiếu nại với JSON body (dùng cho admin dashboard)"""
     try:
         # Tìm khiếu nại trong DB
-        complaint = session.query(Complaint).filter(Complaint.id == complaint_id).first()
+        complaint = session.query(Complaint).filter(Complaint.id == request.complaint_id).first()
         if not complaint:
             return {"success": False, "message": "Không tìm thấy khiếu nại"}
+        
+        approved = request.action == 'approve'
         
         # Cập nhật trạng thái xử lý
         complaint.processed = True
@@ -137,7 +181,7 @@ async def process_complaint(
                 # Nếu chưa có, tạo bản ghi mới
                 # Xác định ca làm việc dựa vào thời gian
                 complaint_time_obj = complaint.created_at.time()
-                checkin(complaint.employee_id, complaint_time_obj)
+                checkin(complaint.employee_id, complaint_time_obj, complaint_date)
         # Lưu thay đổi vào DB
         session.commit()
         

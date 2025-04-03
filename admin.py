@@ -1,5 +1,9 @@
 from fastapi import APIRouter, Request, Response, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
+
+# Khởi tạo templates
+templates = Jinja2Templates(directory="templates")
 
 # Tạo router để quản lý các route liên quan đến admin
 admin_router = APIRouter()
@@ -49,10 +53,3 @@ async def login(request: Request, response: Response):
             "login.html", 
             {"request": request, "error": "Tài khoản hoặc mật khẩu không đúng!"}
         )
-
-@admin_router.get("/logout")
-async def logout(request: Request, response: Response):
-    # Xóa trạng thái xác thực khỏi session
-    request.session.pop("admin_authenticated", None)
-    response = RedirectResponse(url="/")
-    return response 

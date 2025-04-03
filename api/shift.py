@@ -2,6 +2,12 @@ from fastapi import Form
 from database import Shift, session
 from fastapi import APIRouter
 from utils.date import set_time, time_to_string
+from pydantic import BaseModel
+from typing import Dict, Any
+
+class ShiftConfig(BaseModel):
+    shift1: Dict[str, str]
+    shift2: Dict[str, str]
 
 router = APIRouter()
 
@@ -74,3 +80,84 @@ async def delete_shift(shift_id: int):
         "success": True,
         "message": "Xóa ca làm việc thành công"
     }
+
+@router.get("/shift/config", tags=["Shift"])
+async def get_shift_config():
+    """Lấy cấu hình ca làm việc"""
+    try:
+        # Lấy ca 1 và ca 2 từ CSDL
+        shifts = session.query(Shift).all()
+        
+        if len(shifts) < 2:
+            # Nếu không có đủ ca, tạo cấu hình mặc định
+            config = {
+                "shift1": {
+                    "checkIn": "07:00",
+                    "checkOut": "12:00"
+                },
+                "shift2": {
+                    "checkIn": "13:00",
+                    "checkOut": "17:00"
+                }
+            }
+        else:
+            # Sắp xếp theo giờ bắt đầu
+            shifts.sort(key=lambda x: x.checkin)
+            
+            config = {
+                "shift1": {
+                    "checkIn": time_to_string(shifts[0].checkin),
+                    "checkOut": time_to_string(shifts[0].checkout)
+                },
+                "shift2": {
+                    "checkIn": time_to_string(shifts[1].checkin),
+                    "checkOut": time_to_string(shifts[1].checkout)
+                }
+            }
+        
+        return {
+            "success": True,
+            "config": config
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Lỗi khi lấy cấu hình ca làm việc: {str(e)}"
+        }
+
+@router.post("/shift/config", tags=["Shift"])
+async def update_shift_config(config: ShiftConfig):
+    """Cập nhật cấu hình ca làm việc"""
+    try:
+        # Xóa tất cả ca làm việc cũ
+        session.query(Shift).delete()
+        
+        # Tạo ca 1
+        shift1 = Shift(
+            name="Ca sáng",
+            checkin=set_time(config.shift1["checkIn"]),
+            checkout=set_time(config.shift1["checkOut"])
+        )
+        
+        # Tạo ca 2
+        shift2 = Shift(
+            name="Ca chiều",
+            checkin=set_time(config.shift2["checkIn"]),
+            checkout=set_time(config.shift2["checkOut"])
+        )
+        
+        # Lưu vào CSDL
+        session.add(shift1)
+        session.add(shift2)
+        session.commit()
+        
+        return {
+            "success": True,
+            "message": "Cập nhật cấu hình ca làm việc thành công"
+        }
+    except Exception as e:
+        session.rollback()
+        return {
+            "success": False,
+            "message": f"Lỗi khi cập nhật cấu hình ca làm việc: {str(e)}"
+        }
