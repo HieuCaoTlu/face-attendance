@@ -21,8 +21,8 @@ async def get_date():
 @router.get("/exit", tags=["Utils"])
 async def exit():
     stop_camera()
-    sys.exit(0)
-    exit()
+    # sys.exit(0)
+    return 'ĐÃ tắt camera. Vui lòng thoát trình duyệt'
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)

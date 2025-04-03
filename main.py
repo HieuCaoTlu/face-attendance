@@ -5,9 +5,11 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 from stream import stream_router
 from api import router
-from admin import admin_router
+from camera import stop_camera, ready_generate
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi import status
+import signal
+import sys
 
 app = FastAPI(debug=True)
 app.add_middleware(SessionMiddleware, secret_key="face_attendance_secret_key", session_cookie="admin_session", max_age=1, same_site="strict")
@@ -88,3 +90,11 @@ async def logout(request: Request, response: Response):
     request.session.pop("admin_authenticated", None)
     response = RedirectResponse(url="/")
     return response 
+
+def handle_signal(sig, frame):
+    global ready_generate
+    stop_camera()
+    ready_generate = False
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, handle_signal)

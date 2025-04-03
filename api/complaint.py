@@ -1,13 +1,10 @@
-from fastapi import File, Form, UploadFile, Path
-from database import Complaint, session, Employee, Attendance, Shift
+from fastapi import File, Form, UploadFile
+from database import Complaint, session, Employee, Attendance
 from fastapi import APIRouter
 from tools import checkin
 from camera import generate_complaint_camera
 from pydantic import BaseModel
 from typing import Optional
-import os
-from datetime import datetime
-from fastapi.responses import FileResponse
 
 class ComplaintProcessRequest(BaseModel):
     complaint_id: int
@@ -19,13 +16,7 @@ class ComplaintProcessRequest(BaseModel):
 router = APIRouter()
 
 @router.get("/complaint_image", tags=["Complaint"])
-async def get_complaint_image(path: str = None):
-    if path:
-        # Trả về ảnh từ đường dẫn
-        if os.path.exists(path):
-            return FileResponse(path)
-    
-    # Nếu không có path hoặc file không tồn tại, trả về ảnh mặc định
+async def get_complaint_image():
     return {"image": generate_complaint_camera()}
 
 @router.post("/complaint", tags=["Complaint"])
@@ -34,43 +25,17 @@ async def add_complaint(
     employee_id: int = Form(...),
     reason: str = Form(...)
 ):
-    try:
-        # Lưu ảnh vào thư mục uploads
-        content = await image.read()
-        
-        # Tạo thư mục uploads nếu chưa tồn tại
-        if not os.path.exists("static/uploads"):
-            os.makedirs("static/uploads")
-            
-        # Tạo tên file duy nhất
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        filename = f"complaint_{employee_id}_{timestamp}.jpg"
-        filepath = f"static/uploads/{filename}"
-        
-        # Lưu file
-        with open(filepath, "wb") as f:
-            f.write(content)
-            
-        # Tạo complaint với đường dẫn ảnh
-        complaint = Complaint(
-            employee_id=employee_id, 
-            reason=reason, 
-            image_path=filepath
-        )
-        
-        session.add(complaint)
-        session.commit()
-        session.refresh(complaint)
-        
-        return {
-            "id": complaint.id,
-            "created_at": complaint.created_at.isoformat(),
-            "reason": complaint.reason,
-            "image_path": complaint.image_path
-        }
-    except Exception as e:
-        session.rollback()
-        return {"success": False, "message": f"Lỗi khi thêm khiếu nại: {str(e)}"}
+    image_bytes = await image.read()
+    complaint = Complaint(employee_id=employee_id, reason=reason, image=image_bytes)
+    session.add(complaint)
+    session.commit()
+    session.refresh(complaint)
+    print(complaint.id)
+    return {
+        "id": complaint.id,
+        "created_at": complaint.created_at.isoformat(),
+        "reason": complaint.reason
+    }
 
 @router.get("/complaint", tags=["Complaint"])
 async def get_complaints():
@@ -108,7 +73,12 @@ async def get_complaints():
             "success": False,
             "message": f"Lỗi khi lấy danh sách khiếu nại: {str(e)}"
         }
-        
+
+@router.delete("/complaint", tags=["Complaint"])
+async def delete_complaints():
+    session.query(Complaint).delete()
+    session.commit()
+
 @router.get("/complaint/{complaint_id}", tags=["Complaint"])
 async def get_complaint_detail(complaint_id: int):
     """Lấy chi tiết một khiếu nại"""

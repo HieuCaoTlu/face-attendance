@@ -69,7 +69,7 @@ def detect_face(image):
             x1, x2 = min(x_coords), max(x_coords)
             y1, y2 = min(y_coords), max(y_coords)
             bbox_width, bbox_height = x2 - x1, y2 - y1
-            if min(bbox_width, bbox_height) < 60:
+            if min(bbox_width, bbox_height) < 70:
                 return None, None
             
             bbox = np.array([(x1, y1), (x2, y1), (x2, y2), (x1, y2)], dtype=np.int32)
@@ -140,12 +140,15 @@ def train(saved_face, employee_id):
     return {'status': 'Thành công', 'classes': cls_model.classes_.tolist()}
 
 def softmax(x, threshold, labels=None):
-    probabilities = np.exp(x - np.max(x)) / np.sum(np.exp(x - np.max(x)))
-    result = [labels[i] for i, prob in enumerate(probabilities[0]) if prob > threshold]
-    if result and result != "unknown" and result != "unknown2" : return max(result)
-    else: return ""
+    e_x = np.exp(x - np.max(x))  # Tránh overflow bằng cách trừ đi giá trị max
+    probabilities = e_x / np.sum(e_x, axis=-1, keepdims=True)  # Giữ shape chuẩn
+    result = labels[np.where(probabilities[0] > threshold)]
+    if result.size > 0 and not np.isin("unknown", result) and not np.isin("unknown2", result):
+        return result[np.argmax(probabilities[0] > threshold)]  # Trả về giá trị có xác suất cao nhất
+    else:
+        return ""
 
-def predict(face, threshold=0.7):
+def predict(face, threshold=0.6):
     """
     Dự đoán danh tính khuôn mặt từ ảnh.
     - Đầu vào: ảnh khuôn mặt đã cắt

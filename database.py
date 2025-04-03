@@ -49,7 +49,7 @@ class Complaint(BaseModel):
     employee_id = Column(Integer, ForeignKey('employees.id'), nullable=False)
     reason = Column(String, nullable=False)
     processed = Column(Boolean, default=False)
-    image_path = Column(LargeBinary, nullable=False)
+    image = Column(LargeBinary, nullable=False)
     employee = relationship('Employee', back_populates='complaints')
 
 # 🔹 Định nghĩa Model

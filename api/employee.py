@@ -6,7 +6,6 @@ router = APIRouter()
 
 @router.post("/employee", tags=["Employee"])
 async def add_employee(name: str = Form(...),position: str = Form(...)):
-    # Thêm nhân viên vào DB
     new_employee = Employee(name=name, position=position)
     session.add(new_employee)
     session.commit()
@@ -19,8 +18,8 @@ async def add_employee(name: str = Form(...),position: str = Form(...)):
 
 @router.get("/employee", tags=["Employee"])
 async def employees():
-    employees = session.query(Employee.id, Employee.name).all()
-    employee_list = [{"id": emp.id, "name": emp.name} for emp in employees]
+    employees = session.query(Employee).all()
+    employee_list = [{"id": emp.id, "name": emp.name, "position": emp.position} for emp in employees]
     return {"employees": employee_list}
 
 @router.get("/employee/{employee_id}", tags=["Employee"])
