@@ -66,9 +66,9 @@ async def delete_employee(employee_id: int = Path(...)):
         employee = session.query(Employee).filter(Employee.id == employee_id).first()
         if not employee: return {"success": False, "message": f"Không tìm thấy nhân viên có ID {employee_id}"}
         # Xóa tất cả các bản ghi chấm công liên quan
-        session.query(Attendance).filter(Attendance.employee_id == employee_id).all().delete()
+        session.query(Attendance).filter(Attendance.employee_id == employee_id).delete()
         # Xóa tất cả khiếu nại liên quan
-        session.query(Complaint).filter(Complaint.employee_id == employee_id).all().delete()
+        session.query(Complaint).filter(Complaint.employee_id == employee_id).delete()
         # Xóa nhân viên
         refresh_train(employee.id)
         session.delete(employee)

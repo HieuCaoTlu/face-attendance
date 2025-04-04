@@ -2,6 +2,7 @@ import os
 import cv2
 import joblib
 import numpy as np
+import random
 import mediapipe as mp
 import onnxruntime as ort
 from tools import augmentate
@@ -76,7 +77,7 @@ def detect_face(image):
 
     return None, None
 
-def train(saved_face, employee_id):
+def train(saved_face, employee_id, N_SAMPLE=30):
     """
     Huấn luyện model với tập ảnh.
     - Tham số: danh sách ảnh và mã nhân viên
@@ -85,7 +86,12 @@ def train(saved_face, employee_id):
     global cls_model, cls_path, rec_model, cls_ready, labels
     cls_ready = True
     images = saved_face
-        
+    n = len(images)
+    if n < N_SAMPLE:
+        samples = random.choices(images, k=N_SAMPLE - n) 
+        images.extend(samples)
+    elif n > N_SAMPLE:
+        images = random.sample(images, N_SAMPLE)
     session.query(Embedding).filter_by(employee_id=employee_id).delete()
     session.commit()
     embeddings, labels = [], []
@@ -104,7 +110,7 @@ def train(saved_face, employee_id):
         face = cv2.resize(face, (160, 160))
         augmented_faces = augmentate(face)
         all_images = [face] + augmented_faces
-
+        
         for img in all_images:
             count += 1
             img = img.astype('float32') / 255.0
@@ -121,7 +127,6 @@ def train(saved_face, employee_id):
     
     session.add_all(instances)
     session.commit()
-    print('Số lượng ảnh: ',count)
     previous_labels = len(set(labels))
     if previous_labels < 2:
         dummy_embedding = np.random.rand(len(embeddings[0])).tolist()
@@ -160,10 +165,9 @@ def refresh_train(employee_id):
     cls_model = CalibratedClassifierCV(cls_model, cv=2)
     cls_model.fit(embeddings, labels)
     joblib.dump(cls_model, cls_path)
-    del images, embeddings, labels
     return {'status': 'Thành công'}
 
-def predict(face, threshold=0.7):
+def predict(face, threshold=0.6):
     """
     Dự đoán danh tính khuôn mặt từ ảnh.
     - Đầu vào: ảnh khuôn mặt đã cắt

@@ -4,9 +4,11 @@ import random
 from utils.date import *
 from database import session, Employee, Attendance, Shift
 
-def add_attendance(id, shift, date):
+def add_attendance(id, shift, date, checkin=None, checkout=None):
     global message
     new_attendance = Attendance(employee_id=id, shift=shift, date=date)
+    if checkin: new_attendance.checkin = checkin
+    if checkout: new_attendance.checkout = checkout
     session.add(new_attendance)
     session.commit()
     session.refresh(new_attendance)
@@ -15,13 +17,15 @@ def add_attendance(id, shift, date):
 def checkin(id, time=None, date=None):
     employee = session.query(Employee).filter_by(id=id).first()
     if not employee: return
+    skip = True if employee.position.upper() == 'NVHC' else False
     current_time = get_time() if not time else time
     current_shift = None
+    current_index = 0
+    final_in, final_out = None, None
     current_date = get_date() if not date else date
     shifts = session.query(Shift).all()
     if len(shifts) == 0: return
     recs = session.query(Attendance).filter(Attendance.employee_id == id, Attendance.date == current_date).all()
-
     for shift in shifts:
         if shift.checkin <= current_time <= shift.checkout:
             current_shift = shift
@@ -33,12 +37,7 @@ def checkin(id, time=None, date=None):
                 index += 1
         if index == len(shifts): index -= 1
         current_shift = shifts[index]
-
-    previous_shift = None
-    for i in range(len(shifts) - 1):
-        if shifts[i+1] == current_shift: 
-            previous_shift = shifts[i]
-            break
+        current_index = index
 
     # Xác thực chấm công
     current_his = None
@@ -48,30 +47,42 @@ def checkin(id, time=None, date=None):
             current_his = rec
         else:
             previous_his = rec
-
     message = 'checkout'
-    if not current_his:
-        print("1")
-        if not previous_his:
-            print("2")
+    if skip:
+        print("Skipped!")
+        if not recs:
             recs.append(add_attendance(id, current_shift.name, current_date))
-            message = 'checkin'
         else:
-            if not previous_his.checkout:
-                print("3")
-                previous_his.checkout = current_time
+            if recs[-1].checkout: return
+            recs[-1].checkout = current_time
+            for idx, shift in enumerate(shifts[current_index+1:], start=current_index+1):
+                if idx == len(shifts) - 1:
+                    result = add_attendance(id, shift.name, current_date, shift.checkin, current_time)
+                else:
+                    result = add_attendance(id, shift.name, current_date, shift.checkin, shift.checkout)
+                print(shift.checkin)
+                recs.append(result)
+            
+            final_in = recs[0].checkin 
+            final_out = recs[-1].checkout
+    else:
+        if not current_his:
+            if not previous_his:
+                recs.append(add_attendance(id, current_shift.name, current_date))
+                message = 'checkin'
             else:
-                if previous_his.checkout < previous_shift.checkout:
-                    print("4")
+                if not previous_his.checkout:
                     previous_his.checkout = current_time
                 else:
-                    print("5")
                     recs.append(add_attendance(id, current_shift.name, current_date))
                     message = 'checkin'
-    else:
-        if current_time > current_shift.checkin:
-            print("6")
-            current_his.checkout = current_time
+        else:
+            if current_time > current_shift.checkin:
+                current_his.checkout = current_time
+            else:
+                return
+        for rec in recs:
+            print(rec.checkin, rec.checkout)
     session.commit()
     attendance = recs[-1]
     info = {
@@ -82,6 +93,9 @@ def checkin(id, time=None, date=None):
         'attendance_checkout': time_to_string(attendance.checkout) if attendance.checkout else None,
         'message': message
     }
+    if final_in and final_out:
+        info['attendance_checkin'] = time_to_string(final_in)
+        info['attendance_checkout'] = time_to_string(final_out)
     if message == 'checkin':
         late = round(time_to_minutes(attendance.checkin) - time_to_minutes(current_shift.checkin))
         info['checkin_status'] = f'Muộn {late} phút'

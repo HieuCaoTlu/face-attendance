@@ -10,11 +10,11 @@ import signal
 import sys
 
 APPLY_ATTENDANCE = 2
-APPLY_COOLDOWN = 3.5
-APPLY_TRAIN = 10
+APPLY_COOLDOWN = 3
+APPLY_TRAIN = 12
 STEP = 50
 SCALE = 3
-QUALITY = 70
+QUALITY = 60
 
 video_capture = None
 latest_frame = None
@@ -83,12 +83,13 @@ def handle_signal(sig, frame):
 signal.signal(signal.SIGINT, handle_signal)
 
 def generate_predict_camera():
-    global video_capture, APPLY_ATTENDANCE, APPLY_COOLDOWN, SCALE, QUALITY, latest_frame, thread_running
+    global video_capture, APPLY_ATTENDANCE, APPLY_COOLDOWN, SCALE, QUALITY, latest_frame, thread_running, window, window_start_time
     init_camera()
     attendance_successful = False
     prev_label, label_start_time = None, None
     prev_time = time.time()
     attendance_cooldown = 0
+    history = []
 
     while thread_running: 
         image = None
@@ -138,7 +139,7 @@ def generate_predict_camera():
                 prev_label, label_start_time = predicted_label, curr_time
         else:
             prev_label, label_start_time = None, None
-        
+
         ret, buffer = cv2.imencode('.jpeg', image, [cv2.IMWRITE_JPEG_QUALITY, QUALITY])
         if not ret:
             continue

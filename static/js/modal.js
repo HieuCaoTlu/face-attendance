@@ -40,7 +40,7 @@ export function showModal() {
 
 export function updateAttendanceInfo(attendance) {
   if (!attendance) return;
-  console.log()
+  console.log();
   requestAnimationFrame(() => {
     // Lấy phần tử trước khi cập nhật để tránh lỗi nếu phần tử không tồn tại
     const employeeIdEl = document.getElementById("employee_id");
