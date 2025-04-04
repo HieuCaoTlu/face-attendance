@@ -8,8 +8,9 @@ import time
 import json
 import signal
 import sys
+from collections import Counter
 
-APPLY_ATTENDANCE = 2
+APPLY_ATTENDANCE = 50
 APPLY_COOLDOWN = 3
 APPLY_TRAIN = 12
 STEP = 50
@@ -86,12 +87,12 @@ def generate_predict_camera():
     global video_capture, APPLY_ATTENDANCE, APPLY_COOLDOWN, SCALE, QUALITY, latest_frame, thread_running, window, window_start_time
     init_camera()
     attendance_successful = False
-    prev_label, label_start_time = None, None
     prev_time = time.time()
     attendance_cooldown = 0
     history = []
+    label_window = []  # List to store labels in the window
 
-    while thread_running: 
+    while thread_running:
         image = None
         with frame_lock:
             if latest_frame is None:
@@ -129,32 +130,33 @@ def generate_predict_camera():
         
         cv2.putText(image, f"FPS: {fps:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
+        # Update the label window and check if the window has reached APPLY_ATTENDANCE
         if predicted_label:
-            if predicted_label == prev_label:
-                if label_start_time is None:
-                    label_start_time = curr_time
-                elif curr_time - label_start_time >= APPLY_ATTENDANCE:
+            label_window.append(predicted_label)
+            if len(label_window) > APPLY_ATTENDANCE:
+                label_window.pop(0)  # Keep the window size fixed
+
+            # After APPLY_ATTENDANCE seconds, check for the most frequent label
+            if len(label_window) == APPLY_ATTENDANCE:
+                most_common_label, count = Counter(label_window).most_common(1)[0]
+                if count > len(label_window) // 2:  # Only accept a label if it appears more than half the time
+                    predicted_label = most_common_label
                     attendance_successful = True
-            else:
-                prev_label, label_start_time = predicted_label, curr_time
         else:
-            prev_label, label_start_time = None, None
+            label_window.clear()  # Reset the window if no face is detected
+            attendance_successful = False
 
-        ret, buffer = cv2.imencode('.jpeg', image, [cv2.IMWRITE_JPEG_QUALITY, QUALITY])
-        if not ret:
-            continue
-        frame_binary = base64.b64encode(buffer).decode('utf-8')
-        data = { "image": frame_binary }
-
+        # Handle attendance and cooldown
+        data = {"image": base64.b64encode(cv2.imencode('.jpeg', image, [cv2.IMWRITE_JPEG_QUALITY, QUALITY])[1]).decode('utf-8'),}
         if attendance_successful:
-            result = checkin(prev_label)
+            result = checkin(predicted_label)
             if result:
                 data["attendance"] = result
                 data["valid"] = True
                 attendance_successful = False
-                prev_label = None
-                label_start_time = curr_time
+                label_window.clear()  # Clear the window after successful attendance
                 attendance_cooldown = curr_time + APPLY_COOLDOWN
+
         yield f"data: {json.dumps(data)}\n\n"
 
 def generate_train_camera(label):
