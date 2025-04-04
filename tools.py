@@ -25,12 +25,13 @@ def checkin(id, time=None, date=None):
     for shift in shifts:
         if shift.checkin <= current_time <= shift.checkout:
             current_shift = shift
-    
+            
     if not current_shift:
         index = 0
         for shift in shifts:
             if current_time > shift.checkout:
                 index += 1
+        if index == len(shifts): index -= 1
         current_shift = shifts[index]
 
     previous_shift = None
@@ -50,20 +51,26 @@ def checkin(id, time=None, date=None):
 
     message = 'checkout'
     if not current_his:
+        print("1")
         if not previous_his:
+            print("2")
             recs.append(add_attendance(id, current_shift.name, current_date))
             message = 'checkin'
         else:
             if not previous_his.checkout:
+                print("3")
                 previous_his.checkout = current_time
             else:
                 if previous_his.checkout < previous_shift.checkout:
+                    print("4")
                     previous_his.checkout = current_time
                 else:
+                    print("5")
                     recs.append(add_attendance(id, current_shift.name, current_date))
                     message = 'checkin'
     else:
-        if not current_his.checkout and current_time > current_shift.checkin:
+        if current_time > current_shift.checkin:
+            print("6")
             current_his.checkout = current_time
     session.commit()
     attendance = recs[-1]

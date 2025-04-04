@@ -10,7 +10,7 @@
     <title>Hệ thống chấm công TLU</title>
   </head>
   <body>
-    <video autoplay muted loop plays-inline>
+    <video autoplay muted loop plays-inline style="filter: brightness(160%)">
       <source src="/static/videos/bg.mp4" type="video/mp4" />
     </video>
 
@@ -29,18 +29,16 @@
       </div>
 
       <section class="right-section">
-        <a href="/train">
+        <a href="/admin">
           <div class="button">
             Quản trị
             <p>Quản lí lịch sử chấm công</p>
           </div>
         </a>
-        <a href="/api/exit">
-          <div class="button">
-            Thoát
-            <p>Thoát hệ thống</p>
-          </div>
-        </a>
+        <div class="button" onclick="location.reload()">
+          Khởi động lại
+          <p>Khởi động lại camera</p>
+        </div>
         <a href="/complaint">
           <div class="button" id="complaint-button">
             Khiếu nại

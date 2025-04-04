@@ -5,6 +5,11 @@ from fastapi import APIRouter
 
 router = APIRouter()
 
+@router.get("/checkin_temp", tags=["Checkin"])
+async def all_checkins():
+    result = session.query(Attendance).all()
+    return result
+
 @router.post("/checkin", tags=["Checkin"])
 async def checkin_temp(id: str = Form(...)):
     result = checkin(id)

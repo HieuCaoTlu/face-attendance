@@ -1,5 +1,6 @@
 from database import session, Employee, Attendance, Complaint
 from fastapi import Form, Path, APIRouter
+from ai import refresh_train
 
 router = APIRouter()
 
@@ -69,9 +70,10 @@ async def delete_employee(employee_id: int = Path(...)):
         # Xóa tất cả khiếu nại liên quan
         session.query(Complaint).filter(Complaint.employee_id == employee_id).all().delete()
         # Xóa nhân viên
+        refresh_train(employee.id)
         session.delete(employee)
         session.commit()
-        return {"success": True, "message": "Xóa nhân viên thành công", "employee_id": employee.id}
+        return {"success": True, "message": "Xóa nhân viên thành công"}
     except Exception as e:
         session.rollback()
-        return {"success": False, "message": f"Lỗi khi xóa nhân viên: {str(e)}", "employee_id": employee.id}
+        return {"success": False, "message": f"Lỗi khi xóa nhân viên: {str(e)}"}

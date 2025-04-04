@@ -5,6 +5,8 @@ from tools import checkin
 from camera import generate_complaint_camera
 from pydantic import BaseModel
 from typing import Optional
+import base64
+import time
 
 class ComplaintProcessRequest(BaseModel):
     complaint_id: int
@@ -15,9 +17,29 @@ class ComplaintProcessRequest(BaseModel):
 
 router = APIRouter()
 
+# @router.get("/complaint_image", tags=["Complaint"])
+# async def get_complaint_image():
+#     return {"image": generate_complaint_camera()}
+
 @router.get("/complaint_image", tags=["Complaint"])
-async def get_complaint_image():
-    return {"image": generate_complaint_camera()}
+async def get_complaint_image(path: str = None):
+    """Lấy ảnh khiếu nại hoặc tạo ảnh mới từ camera nếu không có path"""
+    try:
+        if not path:
+            # Không có path, tạo ảnh mới từ camera
+            return {"image": generate_complaint_camera()}
+        
+        # Có path, lấy ảnh từ database
+        complaint = session.query(Complaint).filter(Complaint.image_path == path).first()
+        if not complaint:
+            return {"success": False, "message": "Không tìm thấy ảnh"}
+            
+        # Trả về ảnh dạng base64
+        image_base64 = base64.b64encode(complaint.image_data).decode('utf-8')
+        return {"success": True, "image": image_base64}
+    except Exception as e:
+        return {"success": False, "message": f"Lỗi khi lấy ảnh: {str(e)}"}
+
 
 @router.post("/complaint", tags=["Complaint"])
 async def add_complaint(
@@ -25,17 +47,37 @@ async def add_complaint(
     employee_id: int = Form(...),
     reason: str = Form(...)
 ):
-    image_bytes = await image.read()
-    complaint = Complaint(employee_id=employee_id, reason=reason, image=image_bytes)
-    session.add(complaint)
-    session.commit()
-    session.refresh(complaint)
-    print(complaint.id)
-    return {
-        "id": complaint.id,
-        "created_at": complaint.created_at.isoformat(),
-        "reason": complaint.reason
-    }
+    try:
+        image_bytes = await image.read()
+        # Tạo tên file dựa trên thời gian
+        timestamp = int(time.time())
+        image_path = f"complaints/{employee_id}_{timestamp}.jpg"
+        
+        # Lưu ảnh vào database với tên file để có thể tìm lại sau này
+        complaint = Complaint(
+            employee_id=employee_id, 
+            reason=reason, 
+            image_data=image_bytes,
+            image_path=image_path
+        )
+        
+        session.add(complaint)
+        session.commit()
+        session.refresh(complaint)
+        
+        return {
+            "success": True,
+            "id": complaint.id,
+            "created_at": complaint.created_at.isoformat(),
+            "reason": complaint.reason,
+            "image_path": complaint.image_path
+        }
+    except Exception as e:
+        session.rollback()
+        return {
+            "success": False,
+            "message": f"Lỗi khi thêm khiếu nại: {str(e)}"
+        }
 
 @router.get("/complaint", tags=["Complaint"])
 async def get_complaints():

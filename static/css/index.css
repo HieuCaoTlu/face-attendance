@@ -39,7 +39,7 @@ video {
   height: 100%;
   object-fit: cover;
   z-index: -2;
-  filter: brightness(120%);
+  filter: brightness(160%);
 }
 
 button {

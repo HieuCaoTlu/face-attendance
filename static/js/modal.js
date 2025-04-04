@@ -35,12 +35,12 @@ export function showModal() {
       },
       { once: true }
     );
-  }, 6000);
+  }, 3000);
 }
 
 export function updateAttendanceInfo(attendance) {
   if (!attendance) return;
-
+  console.log()
   requestAnimationFrame(() => {
     // Lấy phần tử trước khi cập nhật để tránh lỗi nếu phần tử không tồn tại
     const employeeIdEl = document.getElementById("employee_id");

@@ -37,9 +37,13 @@ class Attendance(BaseModel):
     employee_id = Column(Integer, ForeignKey('employees.id'), nullable=False)
     date = Column(Date, default=get_date)
     shift = Column(String, nullable=False)
+    shift_id = Column(Integer, ForeignKey('shifts.id'), nullable=True) #
     checkin = Column(Time, default=get_time)
     checkout = Column(Time, nullable=True)
+    checkin_status = Column(String, nullable=True) #
+    checkout_status = Column(String, nullable=True) #
     employee = relationship('Employee', back_populates='attendances')
+    shift_info = relationship('Shift', foreign_keys=[shift_id], lazy='joined') #
 
 # 🔹 Bảng Complaint (Khiếu nại)
 class Complaint(BaseModel):
@@ -49,7 +53,11 @@ class Complaint(BaseModel):
     employee_id = Column(Integer, ForeignKey('employees.id'), nullable=False)
     reason = Column(String, nullable=False)
     processed = Column(Boolean, default=False)
-    image = Column(LargeBinary, nullable=False)
+    approved = Column(Boolean, default=False) #
+    status = Column(String, nullable=True) #
+    # image = Column(LargeBinary, nullable=False) 
+    image_data = Column(LargeBinary, nullable=False) #
+    image_path = Column(String, nullable=True) #
     employee = relationship('Employee', back_populates='complaints')
 
 # 🔹 Định nghĩa Model

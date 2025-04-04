@@ -7,6 +7,7 @@ import onnxruntime as ort
 from tools import augmentate
 from sklearn.svm import LinearSVC
 from database import session, Embedding
+from sklearn.calibration import CalibratedClassifierCV
 
 model_dir = os.path.join(os.path.dirname(__file__), 'models')
 rec_path = os.path.join(model_dir, 'quantized_model.onnx')
@@ -30,7 +31,6 @@ def load_model():
 
     #Kiểm tra File SVC
     if not os.path.exists(cls_path):
-        print("File SVC chưa tồn tại, đang tái tạo...")
         cls_model = None
     else:
         cls_model = joblib.load(cls_path)
@@ -41,8 +41,6 @@ rec_model, cls_model = load_model()
 cls_ready = True
 if cls_model == None:
     cls_ready = False
-print(cls_ready)
-
 
 def detect_face(image):
     """
@@ -84,7 +82,7 @@ def train(saved_face, employee_id):
     - Tham số: danh sách ảnh và mã nhân viên
     - Kết quả: trả về huấn luyện thành công
     """
-    global cls_model, cls_path, rec_model, cls_ready
+    global cls_model, cls_path, rec_model, cls_ready, labels
     cls_ready = True
     images = saved_face
         
@@ -128,27 +126,44 @@ def train(saved_face, employee_id):
     if previous_labels < 2:
         dummy_embedding = np.random.rand(len(embeddings[0])).tolist()
         embeddings.append(dummy_embedding)
+        embeddings.append(dummy_embedding)
         labels.append("unknown")
-    if previous_labels < 3:
-        dummy_embedding2 = np.random.rand(len(embeddings[0])).tolist()
-        embeddings.append(dummy_embedding2)
-        labels.append("unknown2")
+        labels.append("unknown")
     cls_model = LinearSVC(random_state=42)
+    cls_model = CalibratedClassifierCV(cls_model, cv=2)
     cls_model.fit(embeddings, labels)
     joblib.dump(cls_model, cls_path)
     del images, embeddings, labels
-    return {'status': 'Thành công', 'classes': cls_model.classes_.tolist()}
+    return {'status': 'Thành công'}
 
-def softmax(x, threshold, labels=None):
-    e_x = np.exp(x - np.max(x))  # Tránh overflow bằng cách trừ đi giá trị max
-    probabilities = e_x / np.sum(e_x, axis=-1, keepdims=True)  # Giữ shape chuẩn
-    result = labels[np.where(probabilities[0] > threshold)]
-    if result.size > 0 and not np.isin("unknown", result) and not np.isin("unknown2", result):
-        return result[np.argmax(probabilities[0] > threshold)]  # Trả về giá trị có xác suất cao nhất
-    else:
-        return ""
+def refresh_train(employee_id):
+    global cls_model, cls_path, rec_model, cls_ready, labels
+    cls_ready = True
+    session.query(Embedding).filter_by(employee_id=employee_id).delete()
+    session.commit()
+    embeddings, labels = [], []
 
-def predict(face, threshold=0.6):
+    # 🔹 Load tất cả embeddings cũ từ database trước khi train
+    data = session.query(Embedding).all()
+    for item in data:
+        embeddings.append(np.frombuffer(item.embedding, dtype=np.float32).tolist())
+        labels.append(item.employee_id)
+
+    previous_labels = len(set(labels))
+    if previous_labels < 2:
+        dummy_embedding = np.random.rand(len(embeddings[0])).tolist()
+        embeddings.append(dummy_embedding)
+        embeddings.append(dummy_embedding)
+        labels.append("unknown")
+        labels.append("unknown")
+    cls_model = LinearSVC(random_state=42)
+    cls_model = CalibratedClassifierCV(cls_model, cv=2)
+    cls_model.fit(embeddings, labels)
+    joblib.dump(cls_model, cls_path)
+    del images, embeddings, labels
+    return {'status': 'Thành công'}
+
+def predict(face, threshold=0.7):
     """
     Dự đoán danh tính khuôn mặt từ ảnh.
     - Đầu vào: ảnh khuôn mặt đã cắt
@@ -164,8 +179,11 @@ def predict(face, threshold=0.6):
     img = np.transpose(img, (2, 0, 1))
     img = np.expand_dims(img, axis=0)
     outputs = rec_model.run(None, {rec_model.get_inputs()[0].name: img})
-    x = cls_model.decision_function(np.array(outputs).reshape(1, -1))
-    # Dự đoán bằng SVC, tính xác suất, kiểm tra ngưỡng rồi dự đoán
-    predicted_label = softmax(x, threshold=threshold, labels=cls_model.classes_)
-    del outputs, img
+    predicted_probs = cls_model.predict_proba(outputs[0])
+    confidence = np.max(predicted_probs)
+    predicted_index = np.argmax(predicted_probs, axis=1)[0]
+    if confidence >= threshold:
+        predicted_label = cls_model.classes_[predicted_index]
+    else:
+        predicted_label = ""
     return predicted_label
